@@ -2,6 +2,8 @@
 Aalborg University Robotics student project by group 760 - 2024
 
 # Installation
+If you follow the guide *to the teeth* then it *should* be installed in these 6 steps.
+
 ## 1. ROS2 Humble Hawksbill Installation
 ### Requires Ubuntu 22.04 or similar.
 ```bash
