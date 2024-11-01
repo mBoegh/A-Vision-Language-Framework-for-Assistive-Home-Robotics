@@ -79,3 +79,17 @@ ros2 launch tiago_gazebo tiago_gazebo.launch.py is_public_sim:=True world_name:=
 ```bash
 ros2 run 2024-ROB7-760 custom_controller
 ```
+
+# Customizing the custom_controller.py
+## You can find the controller here:
+```bash
+cd ~/tiago_public_ws/src/2024-ROB7-760/2024-ROB7-760/
+```
+
+## When you make changes to the controller run this
+```bash
+cd ~/tiago_public_ws
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+source ~/tiago_public_ws/install/setup.bash
+```
