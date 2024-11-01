@@ -60,12 +60,20 @@ cd ~/tiago_public_ws/src/
 gh repo clone mBoegh/2024-ROB7-760
 ```
 
-## 4. In one terminal - Launch Simulation
+## 4. Build and source
+```bash
+cd ~/tiago_public_ws
+source /opt/ros/humble/setup.bash
+colcon build --symlink-install
+source ~/tiago_public_ws/install/setup.bash
+```
+
+## 5. In one terminal - Launch Simulation
 ```bash
 ros2 launch tiago_gazebo tiago_gazebo.launch.py is_public_sim:=True world_name:=pal_office [arm_type:=no-arm]
 ```
 
-## 5. In another terminal - Run the custom controller
+## 6. In another terminal - Run the custom controller
 ```bash
 ros2 run 2024-ROB7-760 custom_controller
 ```
