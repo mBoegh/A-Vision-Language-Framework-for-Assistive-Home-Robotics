@@ -56,9 +56,6 @@ cd ~/tiago_public_ws/src/
 # 3. Clone this repository
 ```bash
 gh repo clone mBoegh/2024-ROB7-760
-git fetch origin
-git checkout -B tiago_simulation origin/tiago_simulation
-cd ~/tiago_public_ws/
 ```
 
 # 4. In one terminal - Launch Simulation
