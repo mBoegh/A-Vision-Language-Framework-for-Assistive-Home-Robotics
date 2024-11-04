@@ -52,11 +52,12 @@ class TiagoCustomController(Node):
 
         image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
+        # Display the BGR image
         cv.imshow("Image", image)
         cv.waitKey(1)
 
     def depth_callback(self, msg):
-
+        # Colorizes the data captured by the headmounted depth sensor and displays it, as it becomes available from the topic '/head_front_camera/depth_registered/image_raw'
         try:
             # Convert ROS Image message to OpenCV format (float32 depth values in meters)
             depth_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='32FC1')
