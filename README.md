@@ -97,6 +97,6 @@ cd ~/tiago_public_ws/src/rob7_760_2024/rob7_760_2024/
 ```bash
 cd ~/tiago_public_ws
 source /opt/ros/humble/setup.bash
-colcon build --symlink-install
+colcon build --package-select rob7_760_2024
 source ~/tiago_public_ws/install/setup.bash
 ```
