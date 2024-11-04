@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = '2024-ROB7-760'
+package_name = 'rob7_760_2024'
 
 setup(
     name=package_name,
@@ -19,7 +19,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'custom_controller = 2024-ROB7-760.custom_controller:main'
+            'custom_controller = rob7_760_2024.custom_controller:main'
         ],
     },
 )
