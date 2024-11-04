@@ -1,4 +1,4 @@
-# 2024-ROB7-760
+# rob7_760_2024
 Aalborg University Robotics student project by group 760 - 2024
 
 # Installation
@@ -59,7 +59,7 @@ cd ~/tiago_public_ws/src/
 
 ## 3. Clone this repository
 ```bash
-gh repo clone mBoegh/2024-ROB7-760
+gh repo clone mBoegh/rob7_760_2024
 ```
 ## 4. Build and source
 ```bash
@@ -84,13 +84,13 @@ ros2 launch tiago_gazebo tiago_gazebo.launch.py is_public_sim:=True world_name:=
 
 ## In another terminal - Run the custom controller
 ```bash
-ros2 run 2024-ROB7-760 custom_controller
+ros2 run rob7_760_2024 custom_controller
 ```
 
 # Customizing the custom_controller.py
 ## You can find the controller here:
 ```bash
-cd ~/tiago_public_ws/src/2024-ROB7-760/2024-ROB7-760/
+cd ~/tiago_public_ws/src/rob7_760_2024/rob7_760_2024/
 ```
 
 ## When you make changes to the controller run this
