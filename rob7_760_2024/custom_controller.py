@@ -82,7 +82,6 @@ class TiagoCustomController(Node):
         except Exception as e:
             self.get_logger().error(f"Failed to process depth image: {e}")
 
-
 def main(args=None):
     rclpy.init(args=args)
     tiago_custom_controller = TiagoCustomController()
