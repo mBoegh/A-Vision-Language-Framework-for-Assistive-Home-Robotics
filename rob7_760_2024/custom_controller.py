@@ -9,6 +9,9 @@ from cv_bridge import CvBridge
 
 import cv2 as cv
 import numpy as np
+import torch
+import clip
+from PIL import Image as pil_Image
 
 class TiagoCustomController(Node):
     def __init__(self):
@@ -35,26 +38,59 @@ class TiagoCustomController(Node):
         self.velocity_cmd = Twist()
         self.joint_position = Float64()
 
+
+        ### CLIP ###
+
+        # Set device for computation (GPU if available, otherwise CPU)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        # Load the CLIP model and preprocessing function
+        self.model, self.preprocess = clip.load("ViT-B/32", device=self.device)
+
+        # Provide your labels (update this list with the labels you want to test against)
+        self.labels = ["Man", "Woman", "Coffee maker", "Bench", "Kitchen sink", "Pringles can", "Box", "Other"]  # <-- replace with your custom labels
+        self.text = clip.tokenize(self.labels).to(self.device)
+
+        self.counter = 0
+
     def timer_callback(self):
         # Example control logic for base movement
         self.velocity_cmd.linear.x = 0.0  # Move forward
-        self.velocity_cmd.angular.z = 100.0  # Turn slightly
+        self.velocity_cmd.angular.z = 0.5  # Turn slightly
         self.base_pub.publish(self.velocity_cmd)
 
         # Example control logic for arm joint position
         self.joint_position.data = 1.0  # Set desired joint position
         self.arm_pub.publish(self.joint_position)
         
-        self.get_logger().info('Published velocity and joint position commands')
+        self.get_logger().debug('Published velocity and joint position commands')
+
 
     def rgb_callback(self, msg):
-        # Displays new images when available from the topic '/head_front_camera/rgb/image_raw' 
-
+        # Convert the ROS Image message to an OpenCV image (numpy array)
         image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
-
-        # Display the BGR image
-        cv.imshow("Image", image)
+        
+        cv.imshow("RGB", image)
         cv.waitKey(1)
+
+        # Convert the OpenCV BGR image (numpy array) to a PIL Image
+        pil_image = pil_Image.fromarray(cv.cvtColor(image, cv.COLOR_BGR2RGB))
+        
+        # Preprocess the image for CLIP model
+        preprocessed_image = self.preprocess(pil_image).unsqueeze(0).to(self.device)
+        
+        # Perform the encoding and similarity computation
+        if self.counter % 60 == 0:
+            with torch.no_grad():
+                image_features = self.model.encode_image(preprocessed_image)
+                text_features = self.model.encode_text(self.text)
+                
+                logits_per_image, logits_per_text = self.model(preprocessed_image, self.text)
+                probs = logits_per_image.softmax(dim=-1).cpu().numpy()
+                
+            # Output the probabilities for each label
+            self.get_logger().info(f"Label probs: {dict(zip(self.labels, probs[0]))}")
+        self.counter += 1
 
     def depth_callback(self, msg):
         # Colorizes the data captured by the headmounted depth sensor and displays it, as it becomes available from the topic '/head_front_camera/depth_registered/image_raw'
@@ -92,4 +128,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-
