@@ -13,20 +13,13 @@ def generate_launch_description():
         'subscribe_odom_info': True,  # Subscribe to odometry
         'approx_sync':True,
         'wait_imu_to_init':True, 
+        'wait_for_transform': 0.200000,
         'qos' : 1, 
         'rviz': True,   
-        # RTAB-Map parameters (adjust them based on your needs)
-        'Odom/Strategy': '0',  # Use odometry for SLAM
-        'Odom/ResetCountdown': '15',  # Time before resetting odometry
-        'Odom/GuessSmoothingDelay': '0',  # Delay before smoothing guess
-        'Rtabmap/StartNewMapOnLoopClosure': 'true',  # Start new map on loop closure
-        'RGBD/CreateOccupancyGrid': 'false',  # Optionally create occupancy grid
-        'Rtabmap/CreateIntermediateNodes': 'true',  # Intermediate nodes for better mapping
-        'RGBD/LinearUpdate': '0',  # Update rate in meters
-        'RGBD/AngularUpdate': '0',  # Update rate in radians
-        'sync_queue_size': 20,  # Increased queue size
-        'topic_queue_size': 10  # Increased topic queue size
-    
+        # Frame IDs
+        'rgb_frame_id': 'head_front_camera_rgb_frame',  # RGB camera frame
+        'depth_frame_id': 'head_front_camera_depth_frame',  # Depth camera frame
+        'imu_frame_id': 'base_imu_link',  # IMU frame
     }]
 
     remappings = [
