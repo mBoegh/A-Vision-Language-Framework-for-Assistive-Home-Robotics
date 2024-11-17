@@ -101,7 +101,7 @@ colcon build --package-select rob7_760_2024
 source ~/tiago_public_ws/install/setup.bash
 ```
 ## in the tiago_gazebo -> mdoel -> .config file :
-'''bash
+```bash
 <?xml version="1.0" ?>
 <database>
   <name>REEMC and Home Environment Models</name>
@@ -220,6 +220,4 @@ source ~/tiago_public_ws/install/setup.bash
   </models>
 </database>
 
-
-
-'''
+```
