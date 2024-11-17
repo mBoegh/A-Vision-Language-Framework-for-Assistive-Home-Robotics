@@ -100,3 +100,121 @@ source /opt/ros/humble/setup.bash
 colcon build --package-select rob7_760_2024
 source ~/tiago_public_ws/install/setup.bash
 ```
+## in the tiago_gazebo -> mdoel -> .config file :
+<?xml version="1.0" ?>
+<database>
+  <name>REEMC and Home Environment Models</name>
+  <license>Creative Commons Attribution 3.0 Unported</license>
+  <models>
+    
+    <!-- home models-->
+    <uri>file://ground_plane</uri>
+    <uri>file://cabinet</uri>
+    <uri>file://cabinet_0</uri>
+    <uri>file://cabinet_1</uri>
+    <uri>file://cabinet_2</uri>
+    <uri>file://cabinet_3</uri>
+    <uri>file://cabinet_4</uri>
+    <uri>file://bookshelf</uri>
+    <uri>file://bookshelf_0</uri>
+    <uri>file://bookshelf_1</uri>
+    <uri>file://bookshelf_2</uri>
+    <uri>file://bookshelf_3</uri>
+    <uri>file://bookshelf_4</uri>
+    <uri>file://table_0</uri>
+    <uri>file://table_1</uri>
+    <uri>file://table_2</uri>
+    <uri>file://arm_chair</uri>
+    <uri>file://arm_chair_0</uri>
+    <uri>file://biscuits_pack</uri>
+    <uri>file://bowl</uri>
+    <uri>file://bowl_0</uri>
+    <uri>file://cafe_table</uri>
+    <uri>file://closet</uri>
+    <uri>file://cocacola</uri>
+    <uri>file://cocacola_0</uri>
+    <uri>file://cocacola_1</uri>
+    <uri>file://coke_can_slim</uri>
+    <uri>file://dining_chair</uri>
+    <uri>file://floor_lamp</uri>
+    <uri>file://home_walls</uri>
+    <uri>file://kitchen_chair</uri>
+    <uri>file://kitchen_chair_0</uri>
+    <uri>file://kitchen_table</uri>
+    <uri>file://pringles2</uri>
+    <uri>file://reviews_table</uri>
+    <uri>file://sideboard</uri>
+    <uri>file://sofa</uri>
+    <uri>file://sprite</uri>
+    <uri>file://tv</uri>
+    <uri>file://wardrobe</uri>
+    <uri>file://wardrobe_0</uri>
+    <!-- New models added -->
+    <uri>file://arm_chair</uri>
+    <uri>file://aruco_board</uri>
+    <uri>file://aruco_cube</uri>
+    <uri>file://aruco_marker_0</uri>
+    <uri>file://aruco_marker_20</uri>
+    <uri>file://aruco_marker_250_6x6_1</uri>
+    <uri>file://aruco_marker_250_6x6_2</uri>
+    <uri>file://aruco_marker_250_6x6_3</uri>
+    <uri>file://aruco_marker_250_6x6_4</uri>
+    <uri>file://aruco_marker_6cm_238</uri>
+    <uri>file://aruco_marker_6cm_26</uri>
+    <uri>file://aruco_marker_6cm_582</uri>
+    <uri>file://aruco_marker_6cm_63</uri>
+    <uri>file://aruco_marker_9cm_238</uri>
+    <uri>file://aruco_marker_9cm_26</uri>
+    <uri>file://aruco_marker_9cm_582</uri>
+    <uri>file://aruco_marker_9cm_63</uri>
+    <uri>file://aruco_marker_original_238</uri>
+    <uri>file://aruco_marker_original_26</uri>
+    <uri>file://aruco_marker_original_582</uri>
+    <uri>file://aruco_marker_original_63</uri>
+    <uri>file://bauman</uri>
+    <uri>file://bench</uri>
+    <uri>file://bifrutas_tropical_can</uri>
+    <uri>file://box_with_handles</uri>
+    <uri>file://brick_box_3x1x3</uri>
+    <uri>file://citizen_extras_female_02</uri>
+    <uri>file://citizen_extras_female_03</uri>
+    <uri>file://citizen_extras_male_03</uri>
+    <uri>file://dock1</uri>
+    <uri>file://door_obstacle</uri>
+    <uri>file://goetz_sofa</uri>
+    <uri>file://green_ball</uri>
+    <uri>file://green_cube</uri>
+    <uri>file://green_rectangle</uri>
+    <uri>file://hospital_flat_map</uri>
+    <uri>file://hospital_map</uri>
+    <uri>file://ideal_sun</uri>
+    <uri>file://ikea_ektorp_chair</uri>
+    <uri>file://ikea_folke_chair</uri>
+    <uri>file://ikea_harry_chair</uri>
+    <uri>file://ikea_stefan_chair</uri>
+    <uri>file://ikea_urban_chair</uri>
+    <uri>file://lamp</uri>
+    <uri>file://macrolink_small_table</uri>
+    <uri>file://macrolink_table</uri>
+    <uri>file://marker26_8cm</uri>
+    <uri>file://pal_poster</uri>
+    <uri>file://pal_textured_object</uri>
+    <uri>file://reemc_bookshelf</uri>
+    <uri>file://reemc_cabinet</uri>
+    <uri>file://reemc_table</uri>
+    <uri>file://reemc_textured_object</uri>
+    <uri>file://reemc_textured_object_nograv</uri>
+    <uri>file://reemc_walls</uri>
+    <uri>file://robocup_walls_70cm_doors</uri>
+    <uri>file://rockin_camp</uri>
+    <uri>file://slippery_patch</uri>
+    <uri>file://small_cylinder</uri>
+    <uri>file://sun</uri>
+    <uri>file://table_0m8</uri>
+    <uri>file://table_1m</uri>
+    <uri>file://test2</uri>
+    <uri>file://testing_room</uri>
+    <uri>file://wall_with_reem_photo</uri>
+    <uri>file://willowgarage</uri>
+  </models>
+</database>
