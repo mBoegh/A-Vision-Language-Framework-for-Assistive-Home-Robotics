@@ -13,27 +13,27 @@ def generate_launch_description():
         #'subscribe_odom_info': True,
         'wait_for_transform': 0.2,
         'approx_sync': True,
-        #'rgb_frame_id': 'head_front_camera_rgb_frame',  # RGB camera frame
-        #'depth_frame_id': 'head_front_camera_depth_frame',  # Depth camera frame
+        'rgb_frame_id': 'head_front_camera_rgb_frame',  # RGB camera frame
+        'depth_frame_id': 'head_front_camera_depth_frame',  # Depth camera frame
         #'imu_frame_id': 'base_imu_link',  # IMU frame        
         #'odom_frame_id': 'odom',
         #'frame_id': 'base_link',
         'use_sim_time':True,
         'RGBD/MaxDepth': 7.0,
-        'RGBD/MinDepth': 0.5,
+        'RGBD/MinDepth': 0.2,
         'RGBD/UseDepthForRegistration': True,
     }]
 
     param_odom = [{
         'frame_id': 'base_footprint',
         'Odom/MaxFeatures': 5000,
-        'Odom/Strategy': 9,
+        #'Odom/Strategy': 9,   #maybe I can use it
         'Mem/CompressionParallelized': True,
         'odom_frame_id': 'odom',
         'publish_tf_odom':'/odom',
         'wait_for_transform': 0.2,
         'wait_imu_to_init':True,
-        'qos': 2, 
+        'qos': 1, 
         'approx_sync': True,
         'use_sim_time':True,
     }]
