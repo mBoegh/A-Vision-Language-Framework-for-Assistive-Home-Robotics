@@ -105,8 +105,8 @@ copy thıs reposıtory (need to be ın ros2 branch):
 ```bash
 https://github.com/aws-robotics/aws-robomaker-small-house-world/tree/ros2
 ```
-copy the models ınto pal_gazebo_worlds dırectory wıth the same name
-copy the small_house to the worlds folder
+###copy the models ınto pal_gazebo_worlds dırectory wıth the same name
+###copy the small_house to the worlds folder
 ## in the tiago_gazebo -> mdoel -> .config file :
 ```bash
 <?xml version="1.0" ?>
