@@ -273,8 +273,7 @@ sudo apt install ros-humble-moveit-planners-chomp
 ## rob760_2024->launch->rtabmap_tiago.launch.py
 
 ``` bash
-param = [{
-        'use_sım_tıme':True,
+    param = [{
         'subscribe_depth': True,
         'subscribe_rgb': True,
         'subscribe_odom_info': True,
@@ -282,12 +281,10 @@ param = [{
         'rgb_frame_id': 'head_front_camera_rgb_frame',  # RGB camera frame
         'depth_frame_id': 'head_front_camera_depth_frame',  # Depth camera frame
         'frame_id': 'base_link',
-        'waıt_for_transform': True,
         'odom_frame_id': 'odom',
         'use_sim_time':True,
         'RGBD/MaxDepth': 8.0,
         'RGBD/MinDepth': 0.6,
-        'wait_imu_to_init':True,
     }]
 
     remappings = [
@@ -298,7 +295,7 @@ param = [{
 
         # imu to improve odometry
         ('imu', '/imu_sensor_broadcaster/imu'),
-    ]
+    ]
 ```
 
 ## launch_pal->launch_pal->robot_arguments->common.py
