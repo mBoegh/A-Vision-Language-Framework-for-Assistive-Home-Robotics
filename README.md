@@ -100,6 +100,13 @@ source /opt/ros/humble/setup.bash
 colcon build --package-select rob7_760_2024
 source ~/tiago_public_ws/install/setup.bash
 ```
+#to use the small_house world:
+copy thıs reposıtory (need to be ın ros2 branch):
+```bash
+https://github.com/aws-robotics/aws-robomaker-small-house-world/tree/ros2
+```
+copy the models ınto pal_gazebo_worlds dırectory wıth the same name
+copy the small_house to the worlds folder
 ## in the tiago_gazebo -> mdoel -> .config file :
 ```bash
 <?xml version="1.0" ?>
@@ -107,7 +114,7 @@ source ~/tiago_public_ws/install/setup.bash
   <name>REEMC and Home Environment Models</name>
   <license>Creative Commons Attribution 3.0 Unported</license>
   <models>
-    
+  
     <!-- home models-->
     <uri>file://ground_plane</uri>
     <uri>file://cabinet</uri>
@@ -150,7 +157,8 @@ source ~/tiago_public_ws/install/setup.bash
     <uri>file://tv</uri>
     <uri>file://wardrobe</uri>
     <uri>file://wardrobe_0</uri>
-    <!-- New models added -->
+
+    <!-- additional models -->
     <uri>file://arm_chair</uri>
     <uri>file://aruco_board</uri>
     <uri>file://aruco_cube</uri>
@@ -168,57 +176,30 @@ source ~/tiago_public_ws/install/setup.bash
     <uri>file://aruco_marker_9cm_26</uri>
     <uri>file://aruco_marker_9cm_582</uri>
     <uri>file://aruco_marker_9cm_63</uri>
-    <uri>file://aruco_marker_original_238</uri>
-    <uri>file://aruco_marker_original_26</uri>
-    <uri>file://aruco_marker_original_582</uri>
-    <uri>file://aruco_marker_original_63</uri>
-    <uri>file://bauman</uri>
+    <uri>file://aws_robomaker_residential_AirconditionerA_01</uri>
+    <uri>file://aws_robomaker_residential_AirconditionerB_01</uri>
+    <uri>file://aws_robomaker_residential_BalconyTable_01</uri>
+    <uri>file://aws_robomaker_residential_Ball_01</uri>
+    <uri>file://aws_robomaker_residential_Bed_01</uri>
+    <uri>file://aws_robomaker_residential_Board_01</uri>
+    <uri>file://aws_robomaker_residential_Carpet_01</uri>
+    <uri>file://aws_robomaker_residential_ChairA_01</uri>
+    <uri>file://aws_robomaker_residential_ChairD_01</uri>
+    <uri>file://aws_robomaker_residential_Chandelier_01</uri>
+    <uri>file://aws_robomaker_residential_CoffeeTable_01</uri>
+    <uri>file://aws_robomaker_residential_CookingBench_01</uri>
+    <uri>file://aws_robomaker_residential_Curtain_01</uri>
+    <uri>file://aws_robomaker_residential_Door_01</uri>
     <uri>file://bench</uri>
-    <uri>file://bifrutas_tropical_can</uri>
-    <uri>file://box_with_handles</uri>
     <uri>file://brick_box_3x1x3</uri>
-    <uri>file://citizen_extras_female_02</uri>
-    <uri>file://citizen_extras_female_03</uri>
-    <uri>file://citizen_extras_male_03</uri>
-    <uri>file://dock1</uri>
-    <uri>file://door_obstacle</uri>
-    <uri>file://goetz_sofa</uri>
-    <uri>file://green_ball</uri>
-    <uri>file://green_cube</uri>
-    <uri>file://green_rectangle</uri>
-    <uri>file://hospital_flat_map</uri>
-    <uri>file://hospital_map</uri>
-    <uri>file://ideal_sun</uri>
-    <uri>file://ikea_ektorp_chair</uri>
-    <uri>file://ikea_folke_chair</uri>
-    <uri>file://ikea_harry_chair</uri>
-    <uri>file://ikea_stefan_chair</uri>
-    <uri>file://ikea_urban_chair</uri>
     <uri>file://lamp</uri>
-    <uri>file://macrolink_small_table</uri>
-    <uri>file://macrolink_table</uri>
-    <uri>file://marker26_8cm</uri>
-    <uri>file://pal_poster</uri>
-    <uri>file://pal_textured_object</uri>
-    <uri>file://reemc_bookshelf</uri>
-    <uri>file://reemc_cabinet</uri>
-    <uri>file://reemc_table</uri>
-    <uri>file://reemc_textured_object</uri>
-    <uri>file://reemc_textured_object_nograv</uri>
-    <uri>file://reemc_walls</uri>
-    <uri>file://robocup_walls_70cm_doors</uri>
-    <uri>file://rockin_camp</uri>
-    <uri>file://slippery_patch</uri>
     <uri>file://small_cylinder</uri>
-    <uri>file://sun</uri>
-    <uri>file://table_0m8</uri>
-    <uri>file://table_1m</uri>
-    <uri>file://test2</uri>
-    <uri>file://testing_room</uri>
-    <uri>file://wall_with_reem_photo</uri>
-    <uri>file://willowgarage</uri>
+    <uri>file://sofa</uri>
+    <uri>file://sprite</uri>
+    <uri>file://wardrobe</uri>
   </models>
 </database>
+
 ```
 ## install movit_planners_chomp
 ```bash
@@ -285,6 +266,7 @@ sudo apt install ros-humble-moveit-planners-chomp
         'use_sim_time':True,
         'RGBD/MaxDepth': 8.0,
         'RGBD/MinDepth': 0.6,
+        'imu_frame_id':'base_imu_link',
     }]
 
     remappings = [
