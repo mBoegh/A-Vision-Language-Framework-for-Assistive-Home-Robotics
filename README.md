@@ -219,5 +219,83 @@ source ~/tiago_public_ws/install/setup.bash
     <uri>file://willowgarage</uri>
   </models>
 </database>
+```
+## install movit_planners_chomp
+```bash
+apt search ros-humble-moveit-planners-chomp
+sudo apt install ros-humble-moveit-planners-chomp
+```
+## tiago_robot->tiago_description->robots->tiago.urdf.xacro
+```bash
+<!-- ARGUMENTS -->
 
+  <!-- pmb2, omni_base -->
+  <xacro:arg name="base_type" default="pmb2"/>
+
+  <!-- no-laser, hokuyo, sick-551, sick-561, sick-571-->
+  <xacro:arg name="laser_model" default="no-laser"/>
+
+  <!-- false, true -->
+  <xacro:arg name="has_screen" default="false"/>
+
+  <!-- no-arm, tiago-arm -->
+  <xacro:arg name="arm_type" default="no-arm"/>
+
+  <!-- no-ft-sensor, schunk-ft -->
+  <xacro:arg name="ft_sensor" default="no-ft-sensor"/>
+
+  <!-- wrist-2010, wrist-2017 -->
+  <xacro:arg name="wrist_model" default="wrist-2017"/>
+
+  <!-- no-end-effector, pal-gripper, pal-hey5, custom, robotiq-2f-85,robotiq-2f-140-->
+  <xacro:arg name="end_effector" default="no-end-effector"/>
+
+  <!-- no-camera, orbbec-astra, orbbec-astra-pro, asus-xtion -->
+  <xacro:arg name="camera_model" default="orbbec-astra-pro"/>
+
+  <!-- false, true -->
+  <xacro:arg name="has_thermal_camera" default="false"/>
+
+  <!-- false, true -->
+  <xacro:arg name="no_safety_eps" default="false"/>
+
+  <!-- Calibration -->
+  <xacro:arg name="description_calibration_dir" default="$(find tiago_description)/urdf/calibration"/>
+  <xacro:arg name="extrinsic_calibration_dir" default="$(find tiago_description)/urdf/calibration"/>
+
+  <!-- Execution env config -->
+  <xacro:arg name="use_sim_time" default="true"/>
+  <xacro:arg name="is_multiple" default="false"/>
+  <xacro:arg name="namespace" default=""/>
+  <xacro:arg name="is_public_sim" default="true"/>
+```
+## rob760_2024->launch->rtabmap_tiago.launch.py
+
+``` bash
+param = [{
+        'use_sım_tıme':True,
+        'subscribe_depth': True,
+        'subscribe_rgb': True,
+        'subscribe_odom_info': True,
+        'approx_sync': True,
+        'rgb_frame_id': 'head_front_camera_rgb_frame',  # RGB camera frame
+        'depth_frame_id': 'head_front_camera_depth_frame',  # Depth camera frame
+        'frame_id': 'base_link',
+        'waıt_for_transform': True,
+        'odom_frame_id': 'odom',
+        'use_sim_time':True,
+        'RGBD/MaxDepth': 8.0,
+        'RGBD/MinDepth': 0.6,
+        'wait_imu_to_init':True,
+    }]
+
+    remappings = [
+        # camera param
+        ('rgb/image', '/head_front_camera/rgb/image_raw'),
+        ('depth/image', '/head_front_camera/depth_registered/image_raw'),
+        ('rgb/camera_info', '/head_front_camera/rgb/camera_info'),
+
+        # imu to improve odometry
+        ('imu', '/imu_sensor_broadcaster/imu'),
+    ]
 ```
