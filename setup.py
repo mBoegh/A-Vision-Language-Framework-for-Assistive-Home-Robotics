@@ -19,7 +19,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'custom_controller = rob7_760_2024.custom_controller:main'
+            'custom_controller = rob7_760_2024.custom_controller:main',
+            'LLM = rob7_760_2024.LLM:main'
         ],
     },
 )
