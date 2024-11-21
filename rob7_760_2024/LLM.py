@@ -50,21 +50,49 @@ class LLM(Node):
         self.object_list_publisher  # prevent unused variable warning
 
         self.object_list_msg = String()
+        
+        
+        #########################
+        ### Example Publisher ###
+        #########################
+        
+        #     # Initialising a publisher to the topic 'example'.
+        #     # On this topic is expected data of type std_msgs.msg.* which is imported as *.
+        #     # The '10' argument is some Quality of Service parameter (QoS).
+        #     self.example_publisher = self.create_publisher(String, 'example', 10)
+        #     self.example_publisher_publisher  # prevent unused variable warning
 
-    #     # Initialising a subscriber to the topic 'example'.
-    #     # On this topic is expected data of type std_msgs.msg.* which is imported as *.
-    #     # The subscriber calls a defined callback function upon message recieval from the topic.
-    #     # The '10' argument is some Quality of Service parameter (QoS).
-    #     self.example_subscription = self.create_subscription(String, 'example', self.example_topic_callback, 10)
-    #     self.example_subscription  # prevent unused variable warning
+        # self.example_msg = String()
+
+        ######################
+        ### End of example ###
+        ######################
+        
 
 
-    # def example_topic_callback(self, msg):
-    #     """
-    #     Callback function called whenever a message is recieved on the subscription 'example_subscription'
-    #     """
+        ##########################
+        ### Example Subscriber ###
+        ##########################
 
-    #     self.get_logger().debug(f"Recieved data '{msg.data}'")
+        #    # Initialising a subscriber to the topic 'example'.
+        #    # On this topic is expected data of type std_msgs.msg.* which is imported as *.
+        #    # The subscriber calls a defined callback function upon message recieval from the topic.
+        #    # The '10' argument is some Quality of Service parameter (QoS).
+        #    self.example_subscription = self.create_subscription(String, 'example', self.example_topic_callback, 10)
+        #    self.example_subscription  # prevent unused variable warning
+
+
+        # def example_topic_callback(self, msg):
+        #    """
+        #    Callback function called whenever a message is recieved on the subscription 'example_subscription'
+        #    """
+
+        #    self.logger.debug(f"Recieved data '{msg.data}'")
+
+
+        ######################
+        ### End of example ###
+        ######################
 
 
     def timer_callback(self):

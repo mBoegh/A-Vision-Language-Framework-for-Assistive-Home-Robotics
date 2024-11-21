@@ -1,4 +1,9 @@
 {
+    "Main":{
+        "TIMER_PERIOD": 0.01,
+        "NODE_LOG_LEVEL": "DEBUG"
+    },
+
     "LLM": {
         "TIMER_PERIOD": 0.01,
         "LLM_MODEL": "gpt-4o-mini",
