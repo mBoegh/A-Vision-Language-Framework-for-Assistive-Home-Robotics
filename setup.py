@@ -23,6 +23,7 @@ setup(
     entry_points={
         'console_scripts': [
             'custom_controller = rob7_760_2024.custom_controller:main'
+            'segmentation_node = rob7_760_2024.segmentation_node:main'
         ],
     },
 )
