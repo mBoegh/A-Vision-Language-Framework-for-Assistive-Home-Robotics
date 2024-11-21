@@ -35,13 +35,13 @@ class Main(Node):
     ### Example Publisher ###
     #########################
     
-    #     # Initialising a publisher to the topic 'example'.
-    #     # On this topic is expected data of type std_msgs.msg.* which is imported as *.
-    #     # The '10' argument is some Quality of Service parameter (QoS).
-    #     self.example_publisher = self.create_publisher(String, 'example', 10)
-    #     self.example_publisher_publisher  # prevent unused variable warning
+        # # Initialising a publisher to the topic 'example'.
+        # # On this topic is expected data of type std_msgs.msg.* which is imported as *.
+        # # The '10' argument is some Quality of Service parameter (QoS).
+        # self.example_publisher = self.create_publisher(String, 'example', 10)
+        # self.example_publisher_publisher  # prevent unused variable warning
 
-    # self.example_msg = String()
+        # self.example_msg = String()
 
     ######################
     ### End of example ###
@@ -53,12 +53,12 @@ class Main(Node):
     ### Example Subscriber ###
     ##########################
 
-    #    # Initialising a subscriber to the topic 'example'.
-    #    # On this topic is expected data of type std_msgs.msg.* which is imported as *.
-    #    # The subscriber calls a defined callback function upon message recieval from the topic.
-    #    # The '10' argument is some Quality of Service parameter (QoS).
-    #    self.example_subscription = self.create_subscription(String, 'example', self.example_topic_callback, 10)
-    #    self.example_subscription  # prevent unused variable warning
+        # # Initialising a subscriber to the topic 'example'.
+        # # On this topic is expected data of type std_msgs.msg.* which is imported as *.
+        # # The subscriber calls a defined callback function upon message recieval from the topic.
+        # # The '10' argument is some Quality of Service parameter (QoS).
+        # self.example_subscription = self.create_subscription(String, 'example', self.example_topic_callback, 10)
+        # self.example_subscription  # prevent unused variable warning
 
 
     # def example_topic_callback(self, msg):
