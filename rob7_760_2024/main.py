@@ -6,7 +6,7 @@ from std_msgs.msg import String
 
 class Main(Node):
     """
-    This is the LLM node of the ROS2 network.
+    This is the Main node of the ROS2 network.
     """
 
     def __init__(self, timer_period):
