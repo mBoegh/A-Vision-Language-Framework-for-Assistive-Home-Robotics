@@ -21,6 +21,8 @@ setup(
         'console_scripts': [
             'custom_controller = rob7_760_2024.custom_controller:main',
             'LLM = rob7_760_2024.LLM:main',
+            'segmentation = rob7_760_2024.custom_controller:main',
+            'map = rob7_760_2024.custom_controller:main',
             'main = rob7_760_2024.main:main'
         ],
     },

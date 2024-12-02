@@ -42,11 +42,10 @@ class LLM(Node):
         # Initialising a timer. The timer periodically calls the timer_callback function. This is essentially a while loop with a set frequency.
         self.timer = self.create_timer(self.TIMER_PERIOD, self.timer_callback)
 
-        # Initialising a subscriber to the topic 'object_list'.
+        # Initialising a publisher to the topic '/object_list'.
         # On this topic is expected data of type std_msgs.msg.String which is imported as String.
-        # The subscriber calls a defined callback function upon message recieval from the topic.
         # The '10' argument is some Quality of Service parameter (QoS).
-        self.object_list_publisher = self.create_publisher(String, 'object_list', 10)
+        self.object_list_publisher = self.create_publisher(String, '/object_list', 10)
         self.object_list_publisher  # prevent unused variable warning
 
         self.object_list_msg = String()
