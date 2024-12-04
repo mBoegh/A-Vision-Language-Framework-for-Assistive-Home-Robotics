@@ -2,8 +2,9 @@ from rob7_760_2024.LIB import JSON_Handler
      
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 from sensor_msgs.msg import PointCloud2
+from geometry_msgs.msg import PoseWithCovarianceStamped
 
 
 import math
@@ -15,10 +16,11 @@ class Main(Node):
     This is the Main node of the ROS2 network.
     """
 
-    def __init__(self, timer_period):
+    def __init__(self, timer_period, goal_distance_threshold):
 
         # Initialising parsed variables.
         self.TIMER_PERIOD = timer_period
+        self.GOAL_DISTANCE_THRESHOLD = goal_distance_threshold
 
         # Initialising the 'Node' class, from which this class is inheriting, with argument 'node_name'.
         Node.__init__(self, 'main')
@@ -32,6 +34,42 @@ class Main(Node):
         self.logger.warning("Hello world!")
         self.logger.error("Hello world!")
         self.logger.fatal("Hello world!")
+
+       # Example input with N-dimensional data
+        self.values = [
+            [3.0, 1.0, 1.0, 2.0],  # chair
+            [5.0, 2.0, 3.0, 4.0],  # cup
+            [5.0, 4.0, 6.0, 3.0],  # cup
+            [6.0, 7.0, 9.0, 5.0],  # sink
+            [7.0, 8.0, 8.0, 9.0],  # spoon
+            [7.0, 20.0, 16.0, 3.0],  # spoon
+            [9.0, 3.0, 3.0, 7.0],  # refrigerator
+            [6.0, 2.0, 5.0, 4.0],  # sink
+            [8.0, 3.0, 4.0, 6.0],  # vase
+        ]
+
+        # Define label mapping
+        self.label_mapping = {
+            'person': 1.0,
+            'couch': 2.0,
+            'chair': 3.0,
+            'tv': 4.0,
+            'cup': 5.0,
+            'sink': 6.0,
+            'spoon': 7.0,
+            'vase': 8.0,
+            'refrigerator': 9.0,
+            'dining table': 10.0,
+            'sports ball': 11.0,
+            'cell phone': 12.0,
+            'bench': 13.0,
+            'bed': 14.0
+        }
+        
+        self.old_labels_to_visit = None
+        self.new_labels_to_visit = None
+
+        self.goal_position = None
 
         # Initialising a timer. The timer periodically calls the timer_callback function. This is essentially a while loop with a set frequency.
         self.timer = self.create_timer(self.TIMER_PERIOD, self.timer_callback)
@@ -80,7 +118,11 @@ class Main(Node):
 ############################
 ######## PUBLISHERS ########
 ############################
+        
+        self.combine_pointcloud_bool_publisher = self.create_publisher(Bool, '/combine_pointcloud_bool', 10)
+        self.combine_pointcloud_bool_publisher
 
+        self.combine_pointcloud_bool_msg = Bool()
 
 #############################
 ######## SUBSCRIBERS ########
@@ -105,39 +147,12 @@ class Main(Node):
         self.point_cloud_subscription = self.create_subscription(PointCloud2, '/transformed_points', self.transformed_points_topic_callback, 10)
         self.point_cloud_subscription  # prevent unused variable warning
 
-
-       # Example input with N-dimensional data
-        self.values = [
-            [3.0, 1.0, 1.0, 2.0],  # chair
-            [5.0, 2.0, 3.0, 4.0],  # cup
-            [5.0, 4.0, 6.0, 3.0],  # cup
-            [6.0, 7.0, 9.0, 5.0],  # sink
-            [7.0, 8.0, 8.0, 9.0],  # spoon
-            [7.0, 20.0, 16.0, 3.0],  # spoon
-            [9.0, 3.0, 3.0, 7.0],  # refrigerator
-            [6.0, 2.0, 5.0, 4.0],  # sink
-            [8.0, 3.0, 4.0, 6.0],  # vase
-        ]
-
-        # Define label mapping
-        self.label_mapping = {
-            'person': 1.0,
-            'couch': 2.0,
-            'chair': 3.0,
-            'tv': 4.0,
-            'cup': 5.0,
-            'sink': 6.0,
-            'spoon': 7.0,
-            'vase': 8.0,
-            'refrigerator': 9.0,
-            'dining table': 10.0,
-            'sports ball': 11.0,
-            'cell phone': 12.0,
-            'bench': 13.0,
-            'bed': 14.0
-        }
-        
-        self.labels_to_visit = None
+        # Initialising a subscriber to the topic '/localization_pose'.
+        # On this topic is expected data of type geometry_msgs.msg.PoseWithCovarianceStamped which is imported as PoseWithCovarianceStamped.
+        # The subscriber calls a defined callback function upon message recieval from the topic.
+        # The '10' argument is some Quality of Service parameter (QoS).
+        self.PoseWithCovarianceStamped_subscription = self.create_subscription(PoseWithCovarianceStamped, '/localization_pose', self.PoseWithCovarianceStamped_callback, 10)
+        self.PoseWithCovarianceStamped_subscription  # prevent unused variable warning
 
 
     def object_list_topic_callback(self, msg):
@@ -147,7 +162,8 @@ class Main(Node):
 
         self.logger.debug(f"Recieved data '{msg.data}'")
 
-        self.labels_to_visit = msg.data
+        self.old_labels_to_visit = self.new_labels_to_visit
+        self.new_labels_to_visit = msg.data
 
 
     def transformed_points_topic_callback(self, msg):
@@ -156,6 +172,20 @@ class Main(Node):
         """
 
         self.logger.debug(f"Recieved data '{msg.data}'")
+
+
+    def PoseWithCovarianceStamped_callback(self, msg):
+        '''
+        Callback function called whenever a message is received on the subscription '/localization_pose'.
+        '''
+
+        self.robot_x = msg.pose.pose.position.x
+        self.robot_y = msg.pose.pose.position.y
+        self.robot_z = msg.pose.pose.position.z
+
+        # Log the values (or process them as needed)
+        self.get_logger().debug(f'Robot position - x: {self.robot_x}, y: {self.robot_y}, z: {self.robot_z}')
+
 
 
     # Filter items by specific labels
@@ -188,13 +218,12 @@ class Main(Node):
         return min_distance, best_combination
 
 
-
     def timer_callback(self):
         '''
         The callback function called during each period of the timer.
         '''
 
-        if not self.labels_to_visit == None:
+        if not self.new_labels_to_visit == None and not self.new_labels_to_visit == self.old_labels_to_visit:
             # Reverse lookup dictionary
             reverse_mapping = {v: k for k, v in self.label_mapping.items()}
 
@@ -206,8 +235,6 @@ class Main(Node):
 
             # Log the labeled values to confirm the mapping
             self.logger.debug(f"Labeled values: {labeled_values}")
-
-            # Example usage
 
             # Ensure labels to visit exist in the mapping
             missing_labels = [label for label in self.labels_to_visit if label not in self.label_mapping]
@@ -224,6 +251,24 @@ class Main(Node):
                 self.logger.debug(f"Minimum total distance: {shortest_distance}")
                 self.logger.debug(f"Labels to visit: {self.labels_to_visit}")
                 self.logger.debug(f"Best positions for items: {best_path}")
+
+                # compute robot distance to goal position
+                self.robot_dist_to_goal = self.euclidean_distance([self.robot_x, self.robot_y, self.robot_z], [self.last_label_positions])
+                self.logger.info(f"Robot distance to goal '{self.last_label}': {self.robot_dist_to_goal}")
+
+                # when no goal has been set, set the goal to be the last object of best_path. This object is the true goal, as segmented by the LLM
+                if self.goal_position == None:
+                    self.goal_position = best_path[-1]
+
+                    ## nav2 set goal here #################################################################################################################
+
+        if self.robot_dist_to_goal < self.GOAL_DISTANCE_THRESHOLD:
+            self.logger.info(f"Robot within goal position distance threshold: {self.goal_position}\nwith '{self.robot_dist_to_goal}' distance to true goal position. ")
+
+            ## simulate manipulation task, ie. wait #######################################################################################################
+
+            ## set new nav2 goal to home position #########################################################################################################
+
 
 
 
@@ -242,6 +287,7 @@ def main():
     
     # Get settings from 'settings.json' file
     TIMER_PERIOD = json_handler.get_subkey_value("Main", "TIMER_PERIOD")
+    GOAL_DISTANCE_THRESHOLD = json_handler.get_subkey_value("Main", "GOAL_DISTANCE_THRESHOLD")
     NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("Main", "NODE_LOG_LEVEL")
 
     # Initialize the rclpy library.
@@ -259,8 +305,8 @@ def main():
     # The eval method interprets a string as a command.
     rclpy.logging.set_logger_level("main", eval(NODE_LOG_LEVEL))
     
-    # Instance the serverTCP class
-    main = Main(TIMER_PERIOD)
+    # Instance the main class
+    main = Main(TIMER_PERIOD, GOAL_DISTANCE_THRESHOLD)
 
     # Begin looping the node
     rclpy.spin(main)
