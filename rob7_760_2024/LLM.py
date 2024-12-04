@@ -2,7 +2,7 @@ from rob7_760_2024.LIB import JSON_Handler
      
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 
 import os
 from openai import OpenAI
@@ -39,6 +39,8 @@ class LLM(Node):
         self.logger.error("Hello world!")
         self.logger.fatal("Hello world!")
 
+        self.trigger = False
+
         # Initialising a timer. The timer periodically calls the timer_callback function. This is essentially a while loop with a set frequency.
         self.timer = self.create_timer(self.TIMER_PERIOD, self.timer_callback)
 
@@ -50,6 +52,8 @@ class LLM(Node):
 
         self.object_list_msg = String()
         
+        self.trigger_subscriber = self.create_subscription(Bool, '/trigger', self.trigger_callback, 10)
+
         
         #########################
         ### Example Publisher ###
@@ -93,36 +97,43 @@ class LLM(Node):
         ### End of example ###
         ######################
 
+    def trigger_callback(self, msg):
+        if msg.data == True:
+            self.timer.reset()
+            self.trigger = True
+
 
     def timer_callback(self):
         # The callback function called during each period of the timer.
         
-        self.user_input = input("Enter your command (or type 'exit' to quit): ")
-        if self.user_input.lower() == 'exit':
-            self.logger.info("Exiting the program. Goodbye!")
-            rclpy.shutdown()
-            quit()
+        if self.trigger == True:
 
-        self.response = self.client.chat.completions.create(
-            messages=[
-                {
-                    "role": "system",
-                    "content": self.LLM_CONTENT
-                },
-                {"role": "user", "content": self.user_input},
-            ],
-            model=self.LLM_MODEL,
-        )
+            self.user_input = input("Enter your command (or type 'exit' to quit): ")
+            if self.user_input.lower() == 'exit':
+                self.logger.info("Exiting the program. Goodbye!")
+                rclpy.shutdown()
+                quit()
 
-        # Accessing the content directly as an attribute
-        self.parsed_locations = self.response.choices[0].message.content
-        self.logger.debug(f"parsed_locations: {self.parsed_locations}")
+            self.response = self.client.chat.completions.create(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": self.LLM_CONTENT
+                    },
+                    {"role": "user", "content": self.user_input},
+                ],
+                model=self.LLM_MODEL,
+            )
 
-        self.object_list_msg.data = self.parsed_locations
-        self.logger.debug(f"object_list_msg.data: {self.object_list_msg.data}")
+            # Accessing the content directly as an attribute
+            self.parsed_locations = self.response.choices[0].message.content
+            self.logger.debug(f"parsed_locations: {self.parsed_locations}")
 
-        self.object_list_publisher.publish(self.object_list_msg)
-        self.logger.debug(f"'object_list_publisher' published message to topic 'object_list'.")
+            self.object_list_msg.data = self.parsed_locations
+            self.logger.debug(f"object_list_msg.data: {self.object_list_msg.data}")
+
+            self.object_list_publisher.publish(self.object_list_msg)
+            self.logger.debug(f"'object_list_publisher' published message to topic 'object_list'.")
 
 
 ####################

@@ -5,10 +5,13 @@ from rclpy.node import Node
 from std_msgs.msg import String, Bool
 from sensor_msgs.msg import PointCloud2
 from geometry_msgs.msg import PoseWithCovarianceStamped
-
+from rclpy.action import ActionClient
+from nav2_msgs.action import NavigateToPose
+from geometry_msgs.msg import PoseStamped
 
 import math
 from itertools import product
+import time
 
 
 class Main(Node):
@@ -16,11 +19,13 @@ class Main(Node):
     This is the Main node of the ROS2 network.
     """
 
-    def __init__(self, timer_period, goal_distance_threshold):
+    def __init__(self, timer_period, goal_distance_threshold, init_sleep_duration):
 
         # Initialising parsed variables.
         self.TIMER_PERIOD = timer_period
         self.GOAL_DISTANCE_THRESHOLD = goal_distance_threshold
+        self.INIT_SLEEP_DURATION = init_sleep_duration
+
 
         # Initialising the 'Node' class, from which this class is inheriting, with argument 'node_name'.
         Node.__init__(self, 'main')
@@ -71,9 +76,19 @@ class Main(Node):
 
         self.goal_position = None
 
+        self.robot_x = None
+        self.robot_y = None
+        self.robot_z = None
+
+        self.start_position
+
         # Initialising a timer. The timer periodically calls the timer_callback function. This is essentially a while loop with a set frequency.
         self.timer = self.create_timer(self.TIMER_PERIOD, self.timer_callback)
-    
+
+        # Nav2 Action Client
+        self.nav_to_pose_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
+
+
 
     #########################
     ### Example Publisher ###
@@ -118,7 +133,13 @@ class Main(Node):
 ############################
 ######## PUBLISHERS ########
 ############################
+
+        self.trigger_publisher = self.create_publisher(Bool, '/trigger', 10)
+        self.trigger_publisher
+
+        self.trigger_msg = Bool()
         
+
         self.combine_pointcloud_bool_publisher = self.create_publisher(Bool, '/combine_pointcloud_bool', 10)
         self.combine_pointcloud_bool_publisher
 
@@ -154,6 +175,11 @@ class Main(Node):
         self.PoseWithCovarianceStamped_subscription = self.create_subscription(PoseWithCovarianceStamped, '/localization_pose', self.PoseWithCovarianceStamped_callback, 10)
         self.PoseWithCovarianceStamped_subscription  # prevent unused variable warning
 
+        time.sleep(self.INIT_SLEEP_DURATION)
+
+        self.trigger_msg.data = True
+        self.trigger_publisher.publish(self.trigger_msg)
+
 
     def object_list_topic_callback(self, msg):
         """
@@ -183,10 +209,10 @@ class Main(Node):
         self.robot_y = msg.pose.pose.position.y
         self.robot_z = msg.pose.pose.position.z
 
+        self.start_position = [self.robot_x, self.robot_y, self.robot_z]
+
         # Log the values (or process them as needed)
         self.get_logger().debug(f'Robot position - x: {self.robot_x}, y: {self.robot_y}, z: {self.robot_z}')
-
-
 
     # Filter items by specific labels
     def filter_items_by_label(self, items, label):
@@ -216,6 +242,59 @@ class Main(Node):
                 best_combination = combination
         
         return min_distance, best_combination
+
+
+    def send_nav_goal(self, x, y, z=0.0, yaw=0.0):
+        """
+        Send a navigation goal to the Nav2 stack.
+        :param x: X-coordinate of the goal.
+        :param y: Y-coordinate of the goal.
+        :param z: Z-coordinate of the goal (optional, default is 0.0).
+        :param yaw: Orientation (yaw) of the goal (optional, default is 0.0).
+        """
+        if not self.nav_to_pose_client.wait_for_server(timeout_sec=5.0):
+            self.logger.error("Nav2 action server not available!")
+            return
+
+        # Create a goal message
+        goal_msg = NavigateToPose.Goal()
+        goal_pose = PoseStamped()
+
+        goal_pose.header.frame_id = "map"  # Assuming goal is in the 'map' frame
+        goal_pose.header.stamp = self.get_clock().now().to_msg()
+        goal_pose.pose.position.x = x
+        goal_pose.pose.position.y = y
+        goal_pose.pose.position.z = z
+        goal_pose.pose.orientation.z = math.sin(yaw / 2.0)  # Convert yaw to quaternion
+        goal_pose.pose.orientation.w = math.cos(yaw / 2.0)
+
+        goal_msg.pose = goal_pose
+
+        # Send the goal to Nav2
+        self.logger.info(f"Sending navigation goal to Nav2: ({x}, {y}, {z}) with yaw {yaw}")
+        self.nav_to_pose_client.send_goal_async(goal_msg).add_done_callback(self.nav_goal_response_callback)
+
+    def nav_goal_response_callback(self, future):
+        """
+        Callback for Nav2 goal response.
+        """
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.logger.error("Nav2 goal was rejected!")
+            return
+
+        self.logger.info("Nav2 goal accepted. Waiting for result...")
+        goal_handle.get_result_async().add_done_callback(self.nav_goal_result_callback)
+
+    def nav_goal_result_callback(self, future):
+        """
+        Callback for Nav2 goal result.
+        """
+        result = future.result().result
+        if result == 0:  # Success
+            self.logger.info("Nav2 goal reached successfully!")
+        else:
+            self.logger.warning(f"Nav2 goal failed with result code: {result}")
 
 
     def timer_callback(self):
@@ -260,15 +339,16 @@ class Main(Node):
                 if self.goal_position == None:
                     self.goal_position = best_path[-1]
 
-                    ## nav2 set goal here #################################################################################################################
+                    x, y, z = self.goal_position  # Assuming 3D position
+                    self.send_nav_goal(x, y, z)
+
 
         if self.robot_dist_to_goal < self.GOAL_DISTANCE_THRESHOLD:
             self.logger.info(f"Robot within goal position distance threshold: {self.goal_position}\nwith '{self.robot_dist_to_goal}' distance to true goal position. ")
 
             ## simulate manipulation task, ie. wait #######################################################################################################
-
-            ## set new nav2 goal to home position #########################################################################################################
-
+            start_x, start_y, start_z = self.start_position
+            self.send_nav_goal(start_x, start_y, start_z)
 
 
 
@@ -288,6 +368,7 @@ def main():
     # Get settings from 'settings.json' file
     TIMER_PERIOD = json_handler.get_subkey_value("Main", "TIMER_PERIOD")
     GOAL_DISTANCE_THRESHOLD = json_handler.get_subkey_value("Main", "GOAL_DISTANCE_THRESHOLD")
+    INIT_SLEEP_DURATION = json_handler.get_subkey_value("Main", "INIT_SLEEP_DURATION")
     NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("Main", "NODE_LOG_LEVEL")
 
     # Initialize the rclpy library.
@@ -306,7 +387,7 @@ def main():
     rclpy.logging.set_logger_level("main", eval(NODE_LOG_LEVEL))
     
     # Instance the main class
-    main = Main(TIMER_PERIOD, GOAL_DISTANCE_THRESHOLD)
+    main = Main(TIMER_PERIOD, GOAL_DISTANCE_THRESHOLD, INIT_SLEEP_DURATION)
 
     # Begin looping the node
     rclpy.spin(main)
