@@ -50,3 +50,4 @@
 ######## Catkin custom files
 #######CATKIN_IGNORE
 #######
+/rob7_760_2024/__pycache__

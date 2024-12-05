@@ -12,6 +12,8 @@ setup(
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name), glob('launch/*.launch.py')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -22,7 +24,10 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'custom_controller = rob7_760_2024.custom_controller:main'
+            'custom_controller = rob7_760_2024.custom_controller:main',
+            'segmentation_node = rob7_760_2024.segmentation_node:main',
+            'object_det_cloud = rob7_760_2024.object_det_cloud:main',
+            'get_centroids = rob7_760_2024.Get_centroids:main',
         ],
     },
 )

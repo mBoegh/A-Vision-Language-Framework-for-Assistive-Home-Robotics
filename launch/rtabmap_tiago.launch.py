@@ -11,15 +11,31 @@ def generate_launch_description():
         'subscribe_depth': True,
         'subscribe_rgb': True,
         'subscribe_odom_info': True,
-        'approx_sync': True,
-        'rgb_frame_id': 'head_front_camera_rgb_frame',  # RGB camera frame
-        'depth_frame_id': 'head_front_camera_depth_frame',  # Depth camera frame
+        #'approx_sync': True,
+        'rgb_frame_id': 'head_front_camera_rgb_optical_frame',  # RGB camera frame
+        #'depth_frame_id': 'head_front_camera_depth_frame',  # Depth camera frame
         'frame_id': 'base_link',
         'odom_frame_id': 'odom',
-        'use_sim_time':True,
+        'use_sim_time': True,
         'RGBD/MaxDepth': 8.0,
         'RGBD/MinDepth': 0.6,
         'imu_frame_id':'base_imu_link',
+        
+        'database_path':'~/.ros/rtabmap.db',
+        'Mem/IncrementalMemory': 'true',
+        'RGBD/OptimizeFromGraphEnd': 'true',
+        'Grid/MaxObstacleHeight':'1.5',
+        #'Rtabmap/LoopClosureDetection':'true',
+        #'Mem/NotLinkedNodesKept': 'false',  # Automatically remove unlinked nodes
+        #'Mem/STMSize': '10',  # Short-term memory size
+        #'RGBD/MaxNodesRemoval': 2,  # Allow removal of up to 2 node at a time
+        
+        # use this after initialization
+        'Rtabmap/Localization': True,
+
+
+        
+        
     }]
 
     remappings = [
@@ -30,7 +46,8 @@ def generate_launch_description():
 
         # imu to improve odometry
         ('imu', '/imu_sensor_broadcaster/imu'),
-    ]
+        
+        ]
 
 
     return LaunchDescription([
@@ -44,11 +61,11 @@ def generate_launch_description():
             package='rtabmap_slam', executable='rtabmap', output='screen',
             parameters=param,
             remappings=remappings,
-            arguments=['-d']),
+            ),
 
         Node(
             package='rtabmap_viz', executable='rtabmap_viz', output='screen',
             parameters=param,
-            remappings=remappings),    
+           remappings=remappings),    
 
     ])
