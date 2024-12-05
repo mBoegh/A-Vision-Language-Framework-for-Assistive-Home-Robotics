@@ -85,7 +85,7 @@ class ImageSegmentationNode(Node):
         self.rgb_frame_counter += 1
         
         # Process only the 4th RGB frame
-        if self.rgb_frame_counter % 30 != 0:
+        if self.rgb_frame_counter % 10 != 0:
             return  # Skip processing and publishing
         
         # Reset counter periodically to avoid overflow
@@ -124,7 +124,7 @@ class ImageSegmentationNode(Node):
         self.depth_frame_counter += 1
         
         # Process only the 4th depth frame
-        if self.depth_frame_counter % 30 != 0:
+        if self.depth_frame_counter % 10 != 0:
             return  # Skip processing the depth image
         
         # Reset counter periodically to avoid overflow
