@@ -1,0 +1,166 @@
+import numpy as np
+import cv2
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import Image, CameraInfo
+from cv_bridge import CvBridge
+import torch
+import random
+
+class ImageSegmentationNode(Node):
+    def __init__(self):
+        super().__init__('image_segmentation_node')
+        
+        # Bridge to convert ROS Image messages to OpenCV
+        self.bridge = CvBridge()
+        
+        # Subscriptions
+        self.rgb_subscription = self.create_subscription(
+            Image,
+            '/head_front_camera/rgb/image_raw',  # Change to your RGB topic
+            self.rgb_callback,
+            10)
+        
+        self.camera_info_subscription = self.create_subscription(
+            CameraInfo,
+            '/head_front_camera/rgb/camera_info',  # Change to your CameraInfo topic
+            self.camera_info_callback,
+            10)
+        
+        # Publisher
+        self.segmented_image_publisher = self.create_publisher(
+            Image,
+            'segmented/image_raw',
+            10
+        )
+        
+        self.camera_info = None
+
+        # YOLOv5 model setup
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.get_logger().info(f"Using device: {self.device}")
+
+        # Load YOLOv5 model without using cache
+        self.model = torch.hub.load(
+            'ultralytics/yolov5', 
+            'yolov5s', 
+            pretrained=True, 
+            force_reload=True  # Force reload to bypass cache
+        ).to(self.device)
+        self.model.eval()
+        
+       #Colors for segmentation
+        self.colors = {
+            'chair': [0, 255, 0],         # Green
+            'couch': [0, 0, 255],         # Blue
+            'bed': [255, 255, 0],         # Yellow
+            'table': [255, 0, 255],       # Magenta
+            'carpet': [128, 0, 128],      # Purple
+            'cabinet': [128, 128, 0],     # Olive
+            'wardrobe': [0, 128, 128],    # Teal
+            'sink': [64, 64, 64],         # Dark Gray
+            'refrigerator': [192, 192, 192], # Light Gray
+            'ball': [255, 165, 0],        # Orange
+            'barbell': [128, 0, 0],       # Maroon
+            'stove': [0, 128, 0] ,        # Dark Green
+            'plate': [128,0, 32]
+        }
+
+        #List of home-related objects to detect
+        self.HOME_OBJECTS = [
+             'chair', 'couch', 'bed', 'table', 'carpet', 'cabinet', 'wardrobe',
+            'sink', 'refrigerator', 'ball', 'barbell', 'stove', 'plate'
+        ]
+
+    def camera_info_callback(self, msg):
+        """Callback for CameraInfo messages."""
+        self.camera_info = msg  # Save the CameraInfo message for future use
+        self.get_logger().info('Received CameraInfo message!')
+
+    def rgb_callback(self, msg):
+        """Callback to process the RGB image."""
+        # Ensure we have camera info before proceeding
+        if self.camera_info is None:
+            self.get_logger().warn("No CameraInfo received yet, skipping image processing.")
+            return
+
+        # Convert the ROS Image message to a NumPy array
+        cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        
+        # Log the shape of the image
+        self.get_logger().info(f"Received RGB image of shape: {cv_image.shape}")
+
+        # Perform segmentation
+        segmented_image, detected_objects = self.segment_image(cv_image, self.camera_info)
+
+        # Log the detected objects
+        self.get_logger().info(f"Detected objects: {detected_objects}")
+
+        # Publish the segmented image
+        self.publish_segmented(segmented_image)
+
+    def segment_image(self, image, camera_info):
+        """Perform YOLO-based segmentation."""
+        results = self.model(image)
+        detections = results.pred[0]
+
+        # Copy the original image
+        segmented_image = image.copy()
+        detected_objects = []
+
+        # Apply segmentation for each detected object
+        for det in detections:
+            x1, y1, x2, y2, conf, cls = det
+            label = self.model.names[int(cls)]
+            confidence = float(conf)
+
+            # Filter detections for home objects with high confidence
+            if label not in self.HOME_OBJECTS or confidence < 0.5:
+                continue
+
+            # Convert coordinates to integers
+            x1, y1, x2, y2 = map(int, (x1, y1, x2, y2))
+
+            # Get the color for the detected label
+            if label in self.colors:
+                color = self.colors[label]
+            else:
+                # Assign a default color if the label is not in self.colors
+                color = [255, 255, 255]  # White
+
+            # Create a colored mask for the object
+            cv2.rectangle(segmented_image, (x1, y1), (x2, y2), color, -1)
+
+            # Draw the bounding box on top
+            cv2.rectangle(segmented_image, (x1, y1), (x2, y2), color, 2)
+
+            # Add the detected object to the list
+            detected_objects.append({
+                'label': label,
+                'confidence': confidence,
+                'bounding_box': (x1, y1, x2, y2)
+            })
+
+        return segmented_image, detected_objects
+
+    def publish_segmented(self, segmented_image):
+        """Publish the segmented image as a ROS Image message."""
+        segmented_image_ros = self.bridge.cv2_to_imgmsg(segmented_image, encoding="bgr8")
+        segmented_image_ros.header.stamp = self.get_clock().now().to_msg()
+        segmented_image_ros.header.frame_id = "head_front_camera_rgb_frame"  # Set to your camera frame
+
+        # Publish the segmented image
+        self.segmented_image_publisher.publish(segmented_image_ros)
+        self.get_logger().info("Published segmented image.")
+        
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = ImageSegmentationNode()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
