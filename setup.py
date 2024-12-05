@@ -21,9 +21,10 @@ setup(
         'console_scripts': [
             'custom_controller = rob7_760_2024.custom_controller:main',
             'LLM = rob7_760_2024.LLM:main',
-            'segmentation = rob7_760_2024.custom_controller:main',
-            'map = rob7_760_2024.custom_controller:main',
-            'main = rob7_760_2024.main:main'
+            'segmentation = rob7_760_2024.segmentation:main',
+            'object_det_cloud = rob7_760_2024.object_det_cloud:main',
+            'main = rob7_760_2024.main:main',
+            'Get_centroids = rob7_760_2024.Get_centroids:main'
         ],
     },
 )

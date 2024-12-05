@@ -80,7 +80,7 @@ class Main(Node):
         self.robot_y = None
         self.robot_z = None
 
-        self.start_position
+        self.start_position = None
 
         # Initialising a timer. The timer periodically calls the timer_callback function. This is essentially a while loop with a set frequency.
         self.timer = self.create_timer(self.TIMER_PERIOD, self.timer_callback)
@@ -212,7 +212,7 @@ class Main(Node):
         self.start_position = [self.robot_x, self.robot_y, self.robot_z]
 
         # Log the values (or process them as needed)
-        self.get_logger().debug(f'Robot position - x: {self.robot_x}, y: {self.robot_y}, z: {self.robot_z}')
+        self.logger.debug(f'Robot position - x: {self.robot_x}, y: {self.robot_y}, z: {self.robot_z}')
 
     # Filter items by specific labels
     def filter_items_by_label(self, items, label):
@@ -342,13 +342,16 @@ class Main(Node):
                     x, y, z = self.goal_position  # Assuming 3D position
                     self.send_nav_goal(x, y, z)
 
+        try:    
+            if self.robot_dist_to_goal < self.GOAL_DISTANCE_THRESHOLD:
+                self.logger.info(f"Robot within goal position distance threshold: {self.goal_position}\nwith '{self.robot_dist_to_goal}' distance to true goal position. ")
 
-        if self.robot_dist_to_goal < self.GOAL_DISTANCE_THRESHOLD:
-            self.logger.info(f"Robot within goal position distance threshold: {self.goal_position}\nwith '{self.robot_dist_to_goal}' distance to true goal position. ")
-
-            ## simulate manipulation task, ie. wait #######################################################################################################
-            start_x, start_y, start_z = self.start_position
-            self.send_nav_goal(start_x, start_y, start_z)
+                ## simulate manipulation task, ie. wait #######################################################################################################
+                start_x, start_y, start_z = self.start_position
+                self.send_nav_goal(start_x, start_y, start_z)
+                
+        except Exception as e:
+            self.logger.warning(f"Not able to send navigation goal with error: '{e}'")
 
 
 
@@ -360,7 +363,7 @@ class Main(Node):
 def main():
     
     # Path for 'settings.json' file
-    json_file_path = ".//src//rob7_760_2024//rob7_760_2024//settings.json"
+    json_file_path = ".//rob7_760_2024//settings.json"
 
     # Instance the 'JSON_Handler' class for interacting with the 'settings.json' file
     json_handler = JSON_Handler(json_file_path)

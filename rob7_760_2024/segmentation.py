@@ -1,3 +1,5 @@
+from rob7_760_2024.LIB import JSON_Handler
+
 import numpy as np
 import cv2
 import rclpy
@@ -13,8 +15,20 @@ import time
 
 class ImageSegmentationNode(Node):
     def __init__(self):
-        super().__init__('image_segmentation_node')
+        
+        # Initialising the 'Node' class, from which this class is inheriting, with argument 'node_name'.
+        Node.__init__(self, 'image_segmentation_node')
+        self.logger = self.get_logger()
 
+        # This is the ROS2 Humble logging system, which is build on the Logging module for Python.
+        # It displays messages with developer specified importance.
+        # Here all the levels of importance are used to indicate that the script is running.
+        self.logger.debug("Hello world!")
+        self.logger.info("Hello world!")
+        self.logger.warning("Hello world!")
+        self.logger.error("Hello world!")
+        self.logger.fatal("Hello world!")
+        
         # Frame counters to process every 4th frame
         self.rgb_frame_counter = 0
         self.depth_frame_counter = 0
@@ -56,7 +70,7 @@ class ImageSegmentationNode(Node):
         # Other initializations (e.g., YOLO model, etc.)
         self.bridge = CvBridge()
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.get_logger().info(f"Using device: {self.device}")
+        self.logger.info(f"Using device: {self.device}")
         self.model = YOLO("yolo11x-seg.pt")
         self.camera_matrix = None
         self.depth_image = None
@@ -94,7 +108,7 @@ class ImageSegmentationNode(Node):
 
         # Check if required data is available
         if not self.camera_info_received or self.depth_image is None:
-            self.get_logger().warn("CameraInfo or Depth Image not received yet, skipping processing.")
+            self.logger.warn("CameraInfo or Depth Image not received yet, skipping processing.")
             return
         
         # Convert the ROS Image message to OpenCV
@@ -138,7 +152,7 @@ class ImageSegmentationNode(Node):
         """Callback for CameraInfo messages."""
         self.camera_matrix = np.array(msg.k).reshape((3, 3))  # Intrinsic camera matrix
         self.camera_info_received = True
-        self.get_logger().info('Camera info received!')
+        self.logger.info('Camera info received!')
 
     def segment_image(self, image):
         """Perform YOLO-based segmentation and return labeled masks."""
@@ -200,23 +214,59 @@ class ImageSegmentationNode(Node):
             x, y, z, label_id = point
             point_array.data.extend([x, y, z, label_id])
         self.point_pub.publish(point_array)
-        self.get_logger().info(f"Published {len(labeled_points_3d)} labeled 3D points")
+        self.logger.info(f"Published {len(labeled_points_3d)} labeled 3D points")
 
     def publish_timestamp(self, timestamp):
         """Publish the image timestamp."""
         header = Header()
         header.stamp = timestamp
         self.timestamp_pub.publish(header)
-        self.get_logger().info(f"Published timestamp: {timestamp}")
+        self.logger.info(f"Published timestamp: {timestamp}")
 
 
-def main(args=None):
-    rclpy.init(args=args)
-    node = ImageSegmentationNode()
-    rclpy.spin(node)
-    node.destroy_node()
-    rclpy.shutdown()
+####################
+######  MAIN  ######
+####################
 
 
-if __name__ == '__main__':
+def main():
+    
+    # Path for 'settings.json' file
+    json_file_path = ".//rob7_760_2024//settings.json"
+
+    # Instance the 'JSON_Handler' class for interacting with the 'settings.json' file
+    json_handler = JSON_Handler(json_file_path)
+    
+    # Get settings from 'settings.json' file
+    NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("Segmentation", "NODE_LOG_LEVEL")
+
+    # Initialize the rclpy library.
+    rclpy.init()
+
+    # Sets the logging level of importance. 
+    # When setting, one is setting the lowest level of importance one is interested in logging.
+    # Logging level is defined in settings.json.
+    # Logging levels:
+    # - DEBUG
+    # - INFO
+    # - WARNING
+    # - ERROR
+    # - FATAL
+    # The eval method interprets a string as a command.
+    rclpy.logging.set_logger_level("image_segmentation_node", eval(NODE_LOG_LEVEL))
+    
+    # Instance the main class
+    image_segmentation_node = ImageSegmentationNode()
+
+    # Begin looping the node
+    rclpy.spin(image_segmentation_node)
+    
+
+if __name__ == "__main__":
     main()
+    
+    
+    
+    
+    
+    

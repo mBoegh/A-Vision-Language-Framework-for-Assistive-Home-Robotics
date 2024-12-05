@@ -144,7 +144,7 @@ class LLM(Node):
 def main():
     
     # Path for 'settings.json' file
-    json_file_path = ".//src//rob7_760_2024//rob7_760_2024//settings.json"
+    json_file_path = ".//rob7_760_2024//settings.json"
 
     # Instance the 'JSON_Handler' class for interacting with the 'settings.json' file
     json_handler = JSON_Handler(json_file_path)

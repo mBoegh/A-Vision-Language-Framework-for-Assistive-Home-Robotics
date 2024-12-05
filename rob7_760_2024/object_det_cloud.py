@@ -1,3 +1,5 @@
+from rob7_760_2024.LIB import JSON_Handler
+
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2, PointField
@@ -11,7 +13,19 @@ import sensor_msgs_py.point_cloud2 as pc2
 
 class MapBuilder(Node):
     def __init__(self):
-        super().__init__('map_builder')
+        
+        # Initialising the 'Node' class, from which this class is inheriting, with argument 'node_name'.
+        Node.__init__(self, 'map_builder')
+        self.logger = self.get_logger()
+
+        # This is the ROS2 Humble logging system, which is build on the Logging module for Python.
+        # It displays messages with developer specified importance.
+        # Here all the levels of importance are used to indicate that the script is running.
+        self.logger.debug("Hello world!")
+        self.logger.info("Hello world!")
+        self.logger.warning("Hello world!")
+        self.logger.error("Hello world!")
+        self.logger.fatal("Hello world!")
 
         # Subscribe to the 3D points topic from SegmentationNode
         self.point_sub = self.create_subscription(
@@ -37,7 +51,7 @@ class MapBuilder(Node):
     def timestamp_callback(self, msg):
         """Callback for the timestamp message."""
         self.latest_timestamp = msg.stamp
-        self.get_logger().info(f"Received timestamp: {self.latest_timestamp}")
+        self.logger.info(f"Received timestamp: {self.latest_timestamp}")
 
     def point_callback(self, msg):
         """
@@ -45,7 +59,7 @@ class MapBuilder(Node):
         Processes points and transforms them to the map frame.
         """
         if self.latest_timestamp is None:
-            self.get_logger().warn("No timestamp received yet, skipping point processing.")
+            self.logger.warn("No timestamp received yet, skipping point processing.")
             return
 
         # Wait for the transform if it's not ready
@@ -61,7 +75,7 @@ class MapBuilder(Node):
                 timeout=rclpy.duration.Duration(seconds=0.01)  # Adjust timeout as needed
             )
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
-            self.get_logger().warn(f"Transform lookup failed: {e}. Retrying...")
+            self.logger.warn(f"Transform lookup failed: {e}. Retrying...")
             return  # Exit early if transform is unavailable
 
         # Parse the Float32MultiArray message
@@ -107,7 +121,7 @@ class MapBuilder(Node):
         Transforms a point from the camera frame to the map frame.
         """
         if transform is None:
-            self.get_logger().error("Transform is None. Skipping point transformation.")
+            self.logger.error("Transform is None. Skipping point transformation.")
             return None
 
         try:
@@ -116,11 +130,11 @@ class MapBuilder(Node):
             rotation = transform.transform.rotation
 
             if any(math.isnan(v) for v in [translation.x, translation.y, translation.z]):
-                self.get_logger().error(f"Transform translation contains NaN values: {translation}")
+                self.logger.error(f"Transform translation contains NaN values: {translation}")
                 return None
 
             if any(math.isnan(v) for v in [rotation.x, rotation.y, rotation.z, rotation.w]):
-                self.get_logger().error(f"Transform rotation contains NaN values: {rotation}")
+                self.logger.error(f"Transform rotation contains NaN values: {rotation}")
                 return None
 
             point_stamped = PointStamped()
@@ -136,7 +150,7 @@ class MapBuilder(Node):
                 'z': transformed_point_stamped.point.z,
             }
         except Exception as e:
-            self.get_logger().error(f"Failed to transform point: {e}")
+            self.logger.error(f"Failed to transform point: {e}")
             return None
 
     def publish_point_cloud(self):
@@ -174,7 +188,7 @@ class MapBuilder(Node):
 
         # Publish the PointCloud2 message
         self.point_cloud_pub.publish(cloud_msg)
-        self.get_logger().info(f"Published PointCloud2 with {len(self.transformed_points)} points")
+        self.logger.info(f"Published PointCloud2 with {len(self.transformed_points)} points")
 
     def reduce_points(self, points):
         """
@@ -186,7 +200,7 @@ class MapBuilder(Node):
 
         for point in points:
             if not self.is_valid_point(point):
-                self.get_logger().warn(f"Invalid point detected and skipped: {point}")
+                self.logger.warn(f"Invalid point detected and skipped: {point}")
                 continue
 
             too_close = False
@@ -209,14 +223,14 @@ class MapBuilder(Node):
         Check if the point is too close to any other point in the output point cloud.
         """
         if not self.is_valid_point(point):
-            self.get_logger().warn(f"Point contains invalid values and will be skipped: {point}")
+            self.logger.warn(f"Point contains invalid values and will be skipped: {point}")
             return True
 
         distance_threshold = 0.01  # Minimum distance between points
 
         for f_point in self.transformed_points:
             if not self.is_valid_point(f_point):
-                self.get_logger().warn(f"Existing transformed point contains invalid values: {f_point}")
+                self.logger.warn(f"Existing transformed point contains invalid values: {f_point}")
                 continue
 
             dist = math.sqrt(
@@ -229,11 +243,44 @@ class MapBuilder(Node):
 
         return False
 
-def main(args=None):
-    rclpy.init(args=args)
-    node = MapBuilder()
-    rclpy.spin(node)
-    rclpy.shutdown()
 
-if __name__ == '__main__':
+####################
+######  MAIN  ######
+####################
+
+
+def main():
+    
+    # Path for 'settings.json' file
+    json_file_path = ".//rob7_760_2024//settings.json"
+
+    # Instance the 'JSON_Handler' class for interacting with the 'settings.json' file
+    json_handler = JSON_Handler(json_file_path)
+    
+    # Get settings from 'settings.json' file
+    NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("Object_det_cloud", "NODE_LOG_LEVEL")
+
+    # Initialize the rclpy library.
+    rclpy.init()
+
+    # Sets the logging level of importance. 
+    # When setting, one is setting the lowest level of importance one is interested in logging.
+    # Logging level is defined in settings.json.
+    # Logging levels:
+    # - DEBUG
+    # - INFO
+    # - WARNING
+    # - ERROR
+    # - FATAL
+    # The eval method interprets a string as a command.
+    rclpy.logging.set_logger_level("map_builder", eval(NODE_LOG_LEVEL))
+    
+    # Instance the main class
+    map_builder = MapBuilder()
+
+    # Begin looping the node
+    rclpy.spin(map_builder)
+    
+
+if __name__ == "__main__":
     main()
