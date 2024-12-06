@@ -98,6 +98,8 @@ class LLM(Node):
         ######################
 
     def trigger_callback(self, msg):
+        self.logger.debug(f"Received data '{msg.data}'")
+        
         if msg.data == True:
             self.timer.reset()
             self.trigger = True

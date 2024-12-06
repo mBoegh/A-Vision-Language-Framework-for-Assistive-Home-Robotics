@@ -1,18 +1,13 @@
 from rob7_760_2024.LIB import JSON_Handler
-     
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String, Bool
 from sensor_msgs.msg import PointCloud2
 from geometry_msgs.msg import PoseWithCovarianceStamped
-from rclpy.action import ActionClient
-from nav2_msgs.action import NavigateToPose
-from geometry_msgs.msg import PoseStamped
-
 import math
 from itertools import product
 import time
-
+import ast
 
 class Main(Node):
     """
@@ -26,21 +21,18 @@ class Main(Node):
         self.GOAL_DISTANCE_THRESHOLD = goal_distance_threshold
         self.INIT_SLEEP_DURATION = init_sleep_duration
 
-
         # Initialising the 'Node' class, from which this class is inheriting, with argument 'node_name'.
         Node.__init__(self, 'main')
         self.logger = self.get_logger()
 
-        # This is the ROS2 Humble logging system, which is build on the Logging module for Python.
-        # It displays messages with developer specified importance.
-        # Here all the levels of importance are used to indicate that the script is running.
+        # Example logging to show node is active
         self.logger.debug("Hello world!")
         self.logger.info("Hello world!")
         self.logger.warning("Hello world!")
         self.logger.error("Hello world!")
         self.logger.fatal("Hello world!")
 
-       # Example input with N-dimensional data
+        # Example N-dimensional data
         self.values = [
             [3.0, 1.0, 1.0, 2.0],  # chair
             [5.0, 2.0, 3.0, 4.0],  # cup
@@ -70,149 +62,110 @@ class Main(Node):
             'bench': 13.0,
             'bed': 14.0
         }
-        
+
+        self.robot_and_goal_localized = False
+
         self.old_labels_to_visit = None
         self.new_labels_to_visit = None
-
         self.goal_position = None
+        self.robot_dist_to_goal = None
+        self.last_label_positions = None  # Initialize last_label_positions
 
-        self.robot_x = None
-        self.robot_y = None
-        self.robot_z = None
+        # # Initialize robot position
+        # self.robot_x = None
+        # self.robot_y = None
+        # self.robot_z = None
 
-        self.start_position = None
+        # Initialize robot position
+        self.robot_x = 5.0
+        self.robot_y = 21.0
+        self.robot_z = 10.0
 
-        # Initialising a timer. The timer periodically calls the timer_callback function. This is essentially a while loop with a set frequency.
+
+        # Initialising a timer that periodically calls the timer_callback function.
         self.timer = self.create_timer(self.TIMER_PERIOD, self.timer_callback)
 
-        # Nav2 Action Client
-        self.nav_to_pose_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
-
-
-
-    #########################
-    ### Example Publisher ###
-    #########################
-    
-        # # Initialising a publisher to the topic 'example'.
-        # # On this topic is expected data of type std_msgs.msg.* which is imported as *.
-        # # The '10' argument is some Quality of Service parameter (QoS).
-        # self.example_publisher = self.create_publisher(String, 'example', 10)
-        # self.example_publisher_publisher  # prevent unused variable warning
-
-        # self.example_msg = String()
-
-    ######################
-    ### End of example ###
-    ######################
-    
-
-
-##########################
-### Example Subscriber ###
-##########################
-
-    # # Initialising a subscriber to the topic 'example'.
-    # # On this topic is expected data of type std_msgs.msg.* which is imported as *.
-    # # The subscriber calls a defined callback function upon message recieval from the topic.
-    # # The '10' argument is some Quality of Service parameter (QoS).
-    # self.example_subscription = self.create_subscription(String, 'example', self.example_topic_callback, 10)
-    # self.example_subscription  # prevent unused variable warning
-
-# def example_topic_callback(self, msg):
-#     """
-#     Callback function called whenever a message is recieved on the subscription 'example_subscription'
-#     """
-#     self.logger.debug(f"Recieved data '{msg.data}'")
-
-######################
-### End of example ###
-######################
-
-
-############################
-######## PUBLISHERS ########
-############################
-
-        self.trigger_publisher = self.create_publisher(Bool, '/trigger', 10)
-        self.trigger_publisher
-
-        self.trigger_msg = Bool()
+        ##########################
+        ### Publishers ###########
+        ##########################
         
-
+        self.trigger_publisher = self.create_publisher(Bool, '/trigger', 10)
+        self.trigger_bool_msg = Bool()
+        
         self.combine_pointcloud_bool_publisher = self.create_publisher(Bool, '/combine_pointcloud_bool', 10)
-        self.combine_pointcloud_bool_publisher
-
         self.combine_pointcloud_bool_msg = Bool()
 
-#############################
-######## SUBSCRIBERS ########
-#############################
-
-        ######## LLM ########
-
-        # Initialising a subscriber to the topic '/object_list'.
-        # On this topic is expected data of type std_msgs.msg.String which is imported as String.
-        # The subscriber calls a defined callback function upon message recieval from the topic.
-        # The '10' argument is some Quality of Service parameter (QoS).
+        ##########################
+        ### Subscribers ##########
+        ##########################
+        # Object list subscriber
         self.object_list_subscription = self.create_subscription(String, '/object_list', self.object_list_topic_callback, 10)
-        self.object_list_subscription  # prevent unused variable warning
-
-
-        ######## MAP ########
-
-        # Initialising a subscriber to the topic '/transformed_points'.
-        # On this topic is expected data of type sensor_msgs.msg.PointCloud2 which is imported as PointCloud2.
-        # The subscriber calls a defined callback function upon message recieval from the topic.
-        # The '10' argument is some Quality of Service parameter (QoS).
+        
+        # Point cloud subscriber
         self.point_cloud_subscription = self.create_subscription(PointCloud2, '/transformed_points', self.transformed_points_topic_callback, 10)
-        self.point_cloud_subscription  # prevent unused variable warning
-
-        # Initialising a subscriber to the topic '/localization_pose'.
-        # On this topic is expected data of type geometry_msgs.msg.PoseWithCovarianceStamped which is imported as PoseWithCovarianceStamped.
-        # The subscriber calls a defined callback function upon message recieval from the topic.
-        # The '10' argument is some Quality of Service parameter (QoS).
+        
+        # Localization pose subscriber
         self.PoseWithCovarianceStamped_subscription = self.create_subscription(PoseWithCovarianceStamped, '/localization_pose', self.PoseWithCovarianceStamped_callback, 10)
-        self.PoseWithCovarianceStamped_subscription  # prevent unused variable warning
 
+        self.logger.debug(f"Sleeping for duration '{self.INIT_SLEEP_DURATION}'")
         time.sleep(self.INIT_SLEEP_DURATION)
+        self.logger.debug("Woke up.")
+        self.trigger_bool_msg.data = True
+        self.logger.debug(f"Loaded trigger_bool_msg with data: '{self.trigger_bool_msg.data}'")
+        self.trigger_publisher.publish(self.trigger_bool_msg)
+        self.logger.debug(f"Published trigger_bool_msg using trigger_bool_publisher.")
 
-        self.trigger_msg.data = True
-        self.trigger_publisher.publish(self.trigger_msg)
 
+    #############################
+    ### Callback Functions ######
+    #############################
 
     def object_list_topic_callback(self, msg):
         """
-        Callback function called whenever a message is recieved on the subscription '/object_list'.
+        Callback function called whenever a message is received on the '/object_list' topic.
         """
-
-        self.logger.debug(f"Recieved data '{msg.data}'")
-
+        self.logger.debug(f"Received data '{msg.data}'")
+        
+        raw_data = msg.data
+        
+        self.logger.debug(f"raw_data: {raw_data}")
+        
+        # Update old labels
         self.old_labels_to_visit = self.new_labels_to_visit
-        self.new_labels_to_visit = msg.data
-
+        
+        try:
+            # Check the format of msg.data
+            if raw_data.startswith('[') and raw_data.endswith(']'):
+                # Evaluate it as a literal list
+                self.new_labels_to_visit = ast.literal_eval(raw_data)
+            else:
+                # Manually split the data if it's just a comma-separated string
+                self.new_labels_to_visit = [label.strip() for label in raw_data.split(',')]
+            
+            # Debugging to show the parsed labels
+            self.logger.debug(f"Parsed labels: {self.new_labels_to_visit}")
+            
+        except (ValueError, SyntaxError) as e:
+            self.logger.error(f"Error parsing labels: {e}")
 
     def transformed_points_topic_callback(self, msg):
         """
-        Callback function called whenever a message is recieved on the subscription '/transformed_points'.
+        Callback function called whenever a message is received on the '/transformed_points' topic.
         """
-
-        self.logger.debug(f"Recieved data '{msg.data}'")
-
+        self.logger.debug(f"Received data '{msg.data}'")
 
     def PoseWithCovarianceStamped_callback(self, msg):
         '''
-        Callback function called whenever a message is received on the subscription '/localization_pose'.
+        Callback function called whenever a message is received on the '/localization_pose' topic.
         '''
-
         self.robot_x = msg.pose.pose.position.x
         self.robot_y = msg.pose.pose.position.y
         self.robot_z = msg.pose.pose.position.z
+        self.get_logger().debug(f'Robot position - x: {self.robot_x}, y: {self.robot_y}, z: {self.robot_z}')
 
-        self.start_position = [self.robot_x, self.robot_y, self.robot_z]
-
-        # Log the values (or process them as needed)
-        self.logger.debug(f'Robot position - x: {self.robot_x}, y: {self.robot_y}, z: {self.robot_z}')
+    ###########################
+    ### Utility Functions #####
+    ###########################
 
     # Filter items by specific labels
     def filter_items_by_label(self, items, label):
@@ -224,15 +177,12 @@ class Main(Node):
 
     # Find the minimum total distance for a sequence of items
     def find_min_distance_path(self, items, labels):
-        # Group all positions for each label
         grouped_positions = [self.filter_items_by_label(items, label) for label in labels]
         
-        # Generate all combinations of positions (one for each label)
         min_distance = float('inf')
         best_combination = None
         
         for combination in product(*grouped_positions):
-            # Compute total distance for this combination
             total_distance = sum(
                 self.euclidean_distance(combination[i], combination[i + 1])
                 for i in range(len(combination) - 1)
@@ -243,129 +193,68 @@ class Main(Node):
         
         return min_distance, best_combination
 
-
-    def send_nav_goal(self, x, y, z=0.0, yaw=0.0):
-        """
-        Send a navigation goal to the Nav2 stack.
-        :param x: X-coordinate of the goal.
-        :param y: Y-coordinate of the goal.
-        :param z: Z-coordinate of the goal (optional, default is 0.0).
-        :param yaw: Orientation (yaw) of the goal (optional, default is 0.0).
-        """
-        if not self.nav_to_pose_client.wait_for_server(timeout_sec=5.0):
-            self.logger.error("Nav2 action server not available!")
-            return
-
-        # Create a goal message
-        goal_msg = NavigateToPose.Goal()
-        goal_pose = PoseStamped()
-
-        goal_pose.header.frame_id = "map"  # Assuming goal is in the 'map' frame
-        goal_pose.header.stamp = self.get_clock().now().to_msg()
-        goal_pose.pose.position.x = x
-        goal_pose.pose.position.y = y
-        goal_pose.pose.position.z = z
-        goal_pose.pose.orientation.z = math.sin(yaw / 2.0)  # Convert yaw to quaternion
-        goal_pose.pose.orientation.w = math.cos(yaw / 2.0)
-
-        goal_msg.pose = goal_pose
-
-        # Send the goal to Nav2
-        self.logger.info(f"Sending navigation goal to Nav2: ({x}, {y}, {z}) with yaw {yaw}")
-        self.nav_to_pose_client.send_goal_async(goal_msg).add_done_callback(self.nav_goal_response_callback)
-
-    def nav_goal_response_callback(self, future):
-        """
-        Callback for Nav2 goal response.
-        """
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.logger.error("Nav2 goal was rejected!")
-            return
-
-        self.logger.info("Nav2 goal accepted. Waiting for result...")
-        goal_handle.get_result_async().add_done_callback(self.nav_goal_result_callback)
-
-    def nav_goal_result_callback(self, future):
-        """
-        Callback for Nav2 goal result.
-        """
-        result = future.result().result
-        if result == 0:  # Success
-            self.logger.info("Nav2 goal reached successfully!")
-        else:
-            self.logger.warning(f"Nav2 goal failed with result code: {result}")
-
+    ##########################
+    ### Timer Callback #######
+    ##########################
 
     def timer_callback(self):
         '''
         The callback function called during each period of the timer.
         '''
-
-        if not self.new_labels_to_visit == None and not self.new_labels_to_visit == self.old_labels_to_visit:
-            # Reverse lookup dictionary
+        
+        if None in [self.robot_x, self.robot_y, self.robot_z]:
+            self.logger.error("Robot position is not available yet.")
+            return
+        
+        if self.new_labels_to_visit is not None and self.new_labels_to_visit != self.old_labels_to_visit:
             reverse_mapping = {v: k for k, v in self.label_mapping.items()}
-
-            # Parse data with labels for N-dimensional coordinates
             labeled_values = [
                 (reverse_mapping.get(value[0], None), *value[1:])
                 for value in self.values
             ]
 
-            # Log the labeled values to confirm the mapping
             self.logger.debug(f"Labeled values: {labeled_values}")
 
-            # Ensure labels to visit exist in the mapping
-            missing_labels = [label for label in self.labels_to_visit if label not in self.label_mapping]
+            missing_labels = [label for label in self.new_labels_to_visit if label not in self.label_mapping]  # Fix here
             if missing_labels:
                 self.logger.error(f"Missing labels in label mapping: {missing_labels}")
                 return
 
-            # Compute the shortest path
-            shortest_distance, best_path = self.find_min_distance_path(labeled_values, self.labels_to_visit)
+            shortest_distance, best_path = self.find_min_distance_path(labeled_values, self.new_labels_to_visit)  # Fix here
 
             if best_path is None:
-                self.logger.warning("No valid path found. Please check the input data or labels.")
+                self.logger.warning("No valid path found.")
             else:
                 self.logger.debug(f"Minimum total distance: {shortest_distance}")
-                self.logger.debug(f"Labels to visit: {self.labels_to_visit}")
+                self.logger.debug(f"Labels to visit: {self.new_labels_to_visit}")
                 self.logger.debug(f"Best positions for items: {best_path}")
 
-                # compute robot distance to goal position
-                self.robot_dist_to_goal = self.euclidean_distance([self.robot_x, self.robot_y, self.robot_z], [self.last_label_positions])
-                self.logger.info(f"Robot distance to goal '{self.last_label}': {self.robot_dist_to_goal}")
+                self.last_label_positions = best_path[-1]
+                self.goal_position = best_path[-1]
 
-                # when no goal has been set, set the goal to be the last object of best_path. This object is the true goal, as segmented by the LLM
-                if self.goal_position == None:
-                    self.goal_position = best_path[-1]
-
-                    x, y, z = self.goal_position  # Assuming 3D position
-                    self.send_nav_goal(x, y, z)
-
-        try:    
-            if self.robot_dist_to_goal < self.GOAL_DISTANCE_THRESHOLD:
-                self.logger.info(f"Robot within goal position distance threshold: {self.goal_position}\nwith '{self.robot_dist_to_goal}' distance to true goal position. ")
-
-                ## simulate manipulation task, ie. wait #######################################################################################################
-                start_x, start_y, start_z = self.start_position
-                self.send_nav_goal(start_x, start_y, start_z)
+                self.robot_dist_to_goal = self.euclidean_distance([self.robot_x, self.robot_y, self.robot_z], self.last_label_positions)
+                self.logger.info(f"Robot distance to goal '{self.goal_position}': {self.robot_dist_to_goal}")
                 
-        except Exception as e:
-            self.logger.warning(f"Not able to send navigation goal with error: '{e}'")
+                self.robot_and_goal_localized = True
+
+            
+
+        if self.robot_and_goal_localized:
+            self.robot_dist_to_goal = self.euclidean_distance([self.robot_x, self.robot_y, self.robot_z], self.last_label_positions)
+            self.logger.info(f"Robot distance to goal '{self.goal_position}': {self.robot_dist_to_goal}")
+            if self.robot_dist_to_goal is not None and self.robot_dist_to_goal < self.GOAL_DISTANCE_THRESHOLD:
+                self.logger.info(f"Robot within goal position distance threshold: {self.robot_dist_to_goal}/{self.GOAL_DISTANCE_THRESHOLD}")
+                # Simulate manipulation task or set new goal
+                # Reset goal or set to home position if needed
 
 
-
-####################
-######  MAIN  ######
-####################
-
+    ##########################
+    ### Main Function #######
+    ##########################
 
 def main():
     
-    # Path for 'settings.json' file
     json_file_path = ".//rob7_760_2024//settings.json"
-
-    # Instance the 'JSON_Handler' class for interacting with the 'settings.json' file
     json_handler = JSON_Handler(json_file_path)
     
     # Get settings from 'settings.json' file
@@ -374,25 +263,10 @@ def main():
     INIT_SLEEP_DURATION = json_handler.get_subkey_value("Main", "INIT_SLEEP_DURATION")
     NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("Main", "NODE_LOG_LEVEL")
 
-    # Initialize the rclpy library.
     rclpy.init()
-
-    # Sets the logging level of importance. 
-    # When setting, one is setting the lowest level of importance one is interested in logging.
-    # Logging level is defined in settings.json.
-    # Logging levels:
-    # - DEBUG
-    # - INFO
-    # - WARNING
-    # - ERROR
-    # - FATAL
-    # The eval method interprets a string as a command.
     rclpy.logging.set_logger_level("main", eval(NODE_LOG_LEVEL))
     
-    # Instance the main class
     main = Main(TIMER_PERIOD, GOAL_DISTANCE_THRESHOLD, INIT_SLEEP_DURATION)
-
-    # Begin looping the node
     rclpy.spin(main)
     
 

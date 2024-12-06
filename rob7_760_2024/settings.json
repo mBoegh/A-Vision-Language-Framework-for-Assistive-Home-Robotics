@@ -2,14 +2,14 @@
     "Main":{
         "TIMER_PERIOD": 0.01,
         "GOAL_DISTANCE_THRESHOLD": 100,
-        "INIT_SLEEP_DURATION": 10,
+        "INIT_SLEEP_DURATION": 1,
         "NODE_LOG_LEVEL": "DEBUG"
     },
 
     "LLM": {
         "TIMER_PERIOD": 0.01,
         "LLM_MODEL": "gpt-4o-mini",
-        "LLM_CONTENT": "You are my semantic processing assistant. When you recieve a string, you should parse it down to the locations included. Like 'Go to the bed behind the cabin' then you should return [bed, cabin], 'Go get my medicine on the counter behind the sofa' then you should return [sofa, counter, medicine]. If a plural is present, return the item the appropriate amount of times. Like 'Go get the remote by the chairs' should return [chair, chair, remote].",
+        "LLM_CONTENT": "You are my semantic processing assistant. When you recieve a string, you should parse it down to the locations included. Like 'Go to the bed behind the cabin' then you should return ['bed', 'cabin'], 'Go get my medicine on the counter behind the sofa' then you should return ['sofa', 'counter', 'medicine']. If a plural is present, return the item the appropriate amount of times. Like 'Go get the remote by the chairs' should return ['chair', 'chair', 'remote'].",
         "NODE_LOG_LEVEL": "DEBUG"
     },
 
