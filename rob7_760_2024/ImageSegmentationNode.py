@@ -1,19 +1,33 @@
-import numpy as np
-import cv2
+from rob7_760_2024.LIB import JSON_Handler
+
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo, PointCloud2, PointField
 from cv_bridge import CvBridge
+import sensor_msgs_py.point_cloud2 as pc2
+
+import numpy as np
+import cv2
 from ultralytics import YOLO
 import torch
 import struct
-import sensor_msgs_py.point_cloud2 as pc2
 
 
 class ImageSegmentationNode(Node):
     def __init__(self):
-        super().__init__('image_segmentation_node')  # Initialize the ROS2 node
+        # Initializing parsed variables.
 
+        # Initializing the 'Node' class, from which this class is inheriting, with argument 'node_name'.
+        Node.__init__(self, 'image_segmentation_node')
+        self.logger = self.get_logger()
+
+        # Example logging to show node is active
+        self.logger.debug("Hello world!")
+        self.logger.info("Hello world!")
+        self.logger.warning("Hello world!")
+        self.logger.error("Hello world!")
+        self.logger.fatal("Hello world!")
+        
         # Frame counters to process every 10th frame (reduces computational load)
         self.rgb_frame_counter = 0
         self.depth_frame_counter = 0
@@ -197,14 +211,38 @@ class ImageSegmentationNode(Node):
         self.get_logger().info(f"Published PointCloud2 with {len(labeled_points_3d)} points")
 
 
-def main(args=None):
-    """Initialize and run the ROS2 node."""
-    rclpy.init(args=args)
-    node = ImageSegmentationNode()
-    rclpy.spin(node)
-    node.destroy_node()
-    rclpy.shutdown()
 
 
-if __name__ == '__main__':
+def main():
+    # Path for 'settings.json' file
+    json_file_path = ".//rob7_760_2024//settings.json"
+    
+    # Instance the 'JSON_Handler' class for interacting with the 'settings.json' file
+    json_handler = JSON_Handler(json_file_path)
+    
+    # Get settings from 'settings.json' file
+    NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("ImageSegmentationNode", "NODE_LOG_LEVEL")
+
+    # Initialize the rclpy library.
+    rclpy.init()
+    
+    # Sets the logging level of importance. 
+    # When setting, one is setting the lowest level of importance one is interested in logging.
+    # Logging level is defined in settings.json.
+    # Logging levels:
+    # - DEBUG
+    # - INFO
+    # - WARNING
+    # - ERROR
+    # - FATAL
+    # The eval method interprets a string as a command.
+    rclpy.logging.set_logger_level("image_segmentation_node", eval(NODE_LOG_LEVEL))
+    
+    # Instance the Main class
+    image_segmentation_node = ImageSegmentationNode()
+    
+    # Begin looping the node
+    rclpy.spin(image_segmentation_node)
+
+if __name__ == "__main__":
     main()

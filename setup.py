@@ -19,12 +19,11 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'custom_controller = rob7_760_2024.custom_controller:main',
-            'LLM = rob7_760_2024.LLM:main',
-            'segmentation = rob7_760_2024.segmentation:main',
-            'object_det_cloud = rob7_760_2024.object_det_cloud:main',
-            'main = rob7_760_2024.main:main',
-            'Get_centroids = rob7_760_2024.Get_centroids:main'
+            'LlmNode = rob7_760_2024.LlmNode:main',
+            'ImageSegmentationNode = rob7_760_2024.ImageSegmentationNode:main',
+            'SemanticPointcloudNode = rob7_760_2024.SemanticPointcloudNode:main',
+            'MainNode = rob7_760_2024.MainNode:main',
+            'GetCentroidsNode = rob7_760_2024.GetCentroidsNode:main'
         ],
     },
 )

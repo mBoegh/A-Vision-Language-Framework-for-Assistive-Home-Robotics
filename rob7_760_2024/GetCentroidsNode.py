@@ -1,16 +1,30 @@
+from rob7_760_2024.LIB import JSON_Handler
+
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2, PointField
 from std_msgs.msg import Header
 import sensor_msgs_py.point_cloud2 as pc2
+
 import numpy as np
 from sklearn.cluster import DBSCAN
 
 
-class GetCentroids(Node):
+class GetCentroidsNode(Node):
     def __init__(self):
-        super().__init__('get_centroids')
+        # Initializing parsed variables.
 
+        # Initializing the 'Node' class, from which this class is inheriting, with argument 'node_name'.
+        Node.__init__(self, 'get_centroids_node')
+        self.logger = self.get_logger()
+
+        # Example logging to show node is active
+        self.logger.debug("Hello world!")
+        self.logger.info("Hello world!")
+        self.logger.warning("Hello world!")
+        self.logger.error("Hello world!")
+        self.logger.fatal("Hello world!")
+        
         # Subscribe to the 3D points topic from object_det_cloud
         self.point_sub = self.create_subscription(
             PointCloud2, '/transformed_points', self.transformed_points_callback, 10)
@@ -213,20 +227,43 @@ def generate_launch_description():
         # Publish the centroid point cloud
         self.point_cloud_pub.publish(centroid_cloud)
         self.get_logger().info(f"Published centroid point cloud: '{centroid_cloud}'")
+    
+def main():
+    # Path for 'settings.json' file
+    json_file_path = ".//rob7_760_2024//settings.json"
+    
+    # Instance the 'JSON_Handler' class for interacting with the 'settings.json' file
+    json_handler = JSON_Handler(json_file_path)
+    
+    # Get settings from 'settings.json' file
+    NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("GetCentroidsNode", "NODE_LOG_LEVEL")
 
-
-def main(args=None):
-    rclpy.init(args=args)
-    node = GetCentroids()
-
+    # Initialize the rclpy library.
+    rclpy.init()
+    
+    # Sets the logging level of importance. 
+    # When setting, one is setting the lowest level of importance one is interested in logging.
+    # Logging level is defined in settings.json.
+    # Logging levels:
+    # - DEBUG
+    # - INFO
+    # - WARNING
+    # - ERROR
+    # - FATAL
+    # The eval method interprets a string as a command.
+    rclpy.logging.set_logger_level("main", eval(NODE_LOG_LEVEL))
+    
+    # Instance the Main class
+    get_centroids_node = GetCentroidsNode()
+    
+    # Begin looping the node
     try:
-        rclpy.spin(node)
+        rclpy.spin(get_centroids_node)
     except KeyboardInterrupt:
-        node.get_logger().info("Shutting down GetCentroids Node.")
+        get_centroids_node.get_logger().info("Shutting down GetCentroidsNode.")
     finally:
-        node.destroy_node()
+        get_centroids_node.destroy_node()
         rclpy.shutdown()
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

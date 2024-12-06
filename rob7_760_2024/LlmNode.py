@@ -8,7 +8,7 @@ import os
 from openai import OpenAI
 
 
-class LLM(Node):
+class LlmNode(Node):
     """
     This is the LLM node of the ROS2 network.
     """
@@ -27,7 +27,7 @@ class LLM(Node):
 
 
         # Initialising the 'Node' class, from which this class is inheriting, with argument 'node_name'.
-        Node.__init__(self, 'llm')
+        Node.__init__(self, 'llm_node')
         self.logger = self.get_logger()
 
         # This is the ROS2 Humble logging system, which is build on the Logging module for Python.
@@ -53,7 +53,6 @@ class LLM(Node):
         self.object_list_msg = String()
         
         self.trigger_subscriber = self.create_subscription(Bool, '/trigger', self.trigger_callback, 10)
-
         
         #########################
         ### Example Publisher ###
@@ -152,10 +151,10 @@ def main():
     json_handler = JSON_Handler(json_file_path)
     
     # Get settings from 'settings.json' file
-    TIMER_PERIOD = json_handler.get_subkey_value("LLM", "TIMER_PERIOD")
-    LLM_MODEL = json_handler.get_subkey_value("LLM", "LLM_MODEL")
-    LLM_CONTENT = json_handler.get_subkey_value("LLM", "LLM_CONTENT")
-    NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("LLM", "NODE_LOG_LEVEL")
+    TIMER_PERIOD = json_handler.get_subkey_value("LlmNode", "TIMER_PERIOD")
+    LLM_MODEL = json_handler.get_subkey_value("LlmNode", "LLM_MODEL")
+    LLM_CONTENT = json_handler.get_subkey_value("LlmNode", "LLM_CONTENT")
+    NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("LlmNode", "NODE_LOG_LEVEL")
 
     # Initialize the rclpy library.
     rclpy.init()
@@ -170,13 +169,13 @@ def main():
     # - ERROR
     # - FATAL
     # The eval method interprets a string as a command.
-    rclpy.logging.set_logger_level("llm", eval(NODE_LOG_LEVEL))
+    rclpy.logging.set_logger_level("llm_node", eval(NODE_LOG_LEVEL))
     
-    # Instance the serverTCP class
-    llm = LLM(TIMER_PERIOD, LLM_MODEL, LLM_CONTENT)
+    # Instance the LLM class
+    llm_node = LlmNode(TIMER_PERIOD, LLM_MODEL, LLM_CONTENT)
 
     # Begin looping the node
-    rclpy.spin(llm)
+    rclpy.spin(llm_node)
     
 
 if __name__ == "__main__":

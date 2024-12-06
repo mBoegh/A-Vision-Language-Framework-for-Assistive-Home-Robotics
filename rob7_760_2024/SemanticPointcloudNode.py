@@ -1,18 +1,32 @@
+from rob7_760_2024.LIB import JSON_Handler
+
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2, PointField
 from geometry_msgs.msg import PointStamped
 import tf2_ros
 from tf2_geometry_msgs import do_transform_point
-import struct
-import math
 import sensor_msgs_py.point_cloud2 as pc2
 
+import struct
+import math
 
-class MapBuilder(Node):
+class SemanticPointcloudNode(Node):
     def __init__(self):
-        super().__init__('map_builder')
+        # Initializing parsed variables.
 
+
+        # Initializing the 'Node' class, from which this class is inheriting, with argument 'node_name'.
+        Node.__init__(self, 'semantic_pointcloud_node')
+        self.logger = self.get_logger()
+
+        # Example logging to show node is active
+        self.logger.debug("Hello world!")
+        self.logger.info("Hello world!")
+        self.logger.warning("Hello world!")
+        self.logger.error("Hello world!")
+        self.logger.fatal("Hello world!")
+        
         # Subscribe to the PointCloud2 topic from the SegmentationNode
         self.pointcloud_sub = self.create_subscription(
             PointCloud2, '/object_detected/pointcloud', self.pointcloud_callback, 10)
@@ -226,12 +240,36 @@ class MapBuilder(Node):
         return False
 
 
-def main(args=None):
-    rclpy.init(args=args)
-    node = MapBuilder()
-    rclpy.spin(node)
-    rclpy.shutdown()
+def main():
+    # Path for 'settings.json' file
+    json_file_path = ".//rob7_760_2024//settings.json"
+    
+    # Instance the 'JSON_Handler' class for interacting with the 'settings.json' file
+    json_handler = JSON_Handler(json_file_path)
+    
+    # Get settings from 'settings.json' file
+    NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("SemanticPointcloudNode", "NODE_LOG_LEVEL")
 
+    # Initialize the rclpy library.
+    rclpy.init()
+    
+    # Sets the logging level of importance. 
+    # When setting, one is setting the lowest level of importance one is interested in logging.
+    # Logging level is defined in settings.json.
+    # Logging levels:
+    # - DEBUG
+    # - INFO
+    # - WARNING
+    # - ERROR
+    # - FATAL
+    # The eval method interprets a string as a command.
+    rclpy.logging.set_logger_level("semantic_pointcloud_node", eval(NODE_LOG_LEVEL))
+    
+    # Instance the MapBuilerNode class
+    semantic_pointcloud_node = SemanticPointcloudNode()
+    
+    # Begin looping the node
+    rclpy.spin(semantic_pointcloud_node)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -1,15 +1,17 @@
 from rob7_760_2024.LIB import JSON_Handler
+
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String, Bool
 from sensor_msgs.msg import PointCloud2
 from geometry_msgs.msg import PoseWithCovarianceStamped
+
 import math
 from itertools import product
 import time
 import ast
 
-class Main(Node):
+class MainNode(Node):
     """
     This is the Main node of the ROS2 network.
     """
@@ -21,7 +23,7 @@ class Main(Node):
         self.INIT_SLEEP_DURATION = init_sleep_duration
 
         # Initializing the 'Node' class, from which this class is inheriting, with argument 'node_name'.
-        Node.__init__(self, 'main')
+        Node.__init__(self, 'main_node')
         self.logger = self.get_logger()
 
         # Example logging to show node is active
@@ -206,17 +208,38 @@ class Main(Node):
 
 
 def main():
+    # Path for 'settings.json' file
     json_file_path = ".//rob7_760_2024//settings.json"
+    
+    # Instance the 'JSON_Handler' class for interacting with the 'settings.json' file
     json_handler = JSON_Handler(json_file_path)
-    TIMER_PERIOD = json_handler.get_subkey_value("Main", "TIMER_PERIOD")
-    GOAL_DISTANCE_THRESHOLD = json_handler.get_subkey_value("Main", "GOAL_DISTANCE_THRESHOLD")
-    INIT_SLEEP_DURATION = json_handler.get_subkey_value("Main", "INIT_SLEEP_DURATION")
-    NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("Main", "NODE_LOG_LEVEL")
+    
+    # Get settings from 'settings.json' file
+    TIMER_PERIOD = json_handler.get_subkey_value("MainNode", "TIMER_PERIOD")
+    GOAL_DISTANCE_THRESHOLD = json_handler.get_subkey_value("MainNode", "GOAL_DISTANCE_THRESHOLD")
+    INIT_SLEEP_DURATION = json_handler.get_subkey_value("MainNode", "INIT_SLEEP_DURATION")
+    NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("MainNode", "NODE_LOG_LEVEL")
 
+    # Initialize the rclpy library.
     rclpy.init()
-    rclpy.logging.set_logger_level("main", eval(NODE_LOG_LEVEL))
-    main = Main(TIMER_PERIOD, GOAL_DISTANCE_THRESHOLD, INIT_SLEEP_DURATION)
-    rclpy.spin(main)
+    
+    # Sets the logging level of importance. 
+    # When setting, one is setting the lowest level of importance one is interested in logging.
+    # Logging level is defined in settings.json.
+    # Logging levels:
+    # - DEBUG
+    # - INFO
+    # - WARNING
+    # - ERROR
+    # - FATAL
+    # The eval method interprets a string as a command.
+    rclpy.logging.set_logger_level("main_node", eval(NODE_LOG_LEVEL))
+    
+    # Instance the Main class
+    main_node = MainNode(TIMER_PERIOD, GOAL_DISTANCE_THRESHOLD, INIT_SLEEP_DURATION)
+    
+    # Begin looping the node
+    rclpy.spin(main_node)
 
 if __name__ == "__main__":
     main()

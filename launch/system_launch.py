@@ -53,23 +53,23 @@ def generate_launch_description():
     return LaunchDescription([
 
         Node(
-            package='rob7_760_2024', executable='main', output='screen',
+            package='rob7_760_2024', executable='MainNode', output='screen',
             ),
         
         Node(
-            package='rob7_760_2024', executable='LLM', output='screen',
+            package='rob7_760_2024', executable='LlmNode', output='screen',
             ),
         
         Node(
-            package='rob7_760_2024', executable='object_det_cloud', output='screen',
+            package='rob7_760_2024', executable='SemanticPointcloudNode', output='screen',
             ),
         
         Node(
-            package='rob7_760_2024', executable='Get_centroids', output='screen',
+            package='rob7_760_2024', executable='GetCentroidsNode', output='screen',
             ),
 
         Node(
-            package='rob7_760_2024', executable='segmentation', output='screen',
+            package='rob7_760_2024', executable='ImageSegmentationNode', output='screen',
             ),
 
         Node(

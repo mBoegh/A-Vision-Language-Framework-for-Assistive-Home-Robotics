@@ -2,3 +2,4 @@ rob7_760_2024/config.py
 rob7_760_2024/__pycache__/
 launch/yolo11x-seg.pt
 launch/__pycache__
+yolo11x-seg.pt
