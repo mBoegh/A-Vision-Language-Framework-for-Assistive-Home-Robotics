@@ -1,9 +1,6 @@
-from rob7_760_2024.LIB import JSON_Handler
-
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2, PointField
-from std_msgs.msg import Float32MultiArray, Header
 from geometry_msgs.msg import PointStamped
 import tf2_ros
 from tf2_geometry_msgs import do_transform_point
@@ -11,80 +8,66 @@ import struct
 import math
 import sensor_msgs_py.point_cloud2 as pc2
 
+
 class MapBuilder(Node):
     def __init__(self):
-        
-        # Initialising the 'Node' class, from which this class is inheriting, with argument 'node_name'.
-        Node.__init__(self, 'map_builder')
-        self.logger = self.get_logger()
+        super().__init__('map_builder')
 
-        # This is the ROS2 Humble logging system, which is build on the Logging module for Python.
-        # It displays messages with developer specified importance.
-        # Here all the levels of importance are used to indicate that the script is running.
-        self.logger.debug("Hello world!")
-        self.logger.info("Hello world!")
-        self.logger.warning("Hello world!")
-        self.logger.error("Hello world!")
-        self.logger.fatal("Hello world!")
-
-        # Subscribe to the 3D points topic from SegmentationNode
-        self.point_sub = self.create_subscription(
-            Float32MultiArray, '/object_detected/middle_point', self.point_callback, 10)
-
-        # Subscribe to the timestamp topic from SegmentationNode
-        self.timestamp_sub = self.create_subscription(
-            Header, '/object_detected/image_timestamp', self.timestamp_callback, 10)
+        # Subscribe to the PointCloud2 topic from the SegmentationNode
+        self.pointcloud_sub = self.create_subscription(
+            PointCloud2, '/object_detected/pointcloud', self.pointcloud_callback, 10)
 
         # Publisher for the transformed points as PointCloud2
         self.point_cloud_pub = self.create_publisher(PointCloud2, '/transformed_points', 10)
 
         # Create a TF buffer and listener to get the transforms
         self.tf_buffer = tf2_ros.Buffer(rclpy.duration.Duration(seconds=100))
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
+
 
         # List to store transformed points with labels
         self.transformed_points = []
 
-        # Store the latest timestamp from the SegmentationNode
-        self.latest_timestamp = None  
-
-    def timestamp_callback(self, msg):
-        """Callback for the timestamp message."""
-        self.latest_timestamp = msg.stamp
-        self.logger.info(f"Received timestamp: {self.latest_timestamp}")
-
-    def point_callback(self, msg):
+    def pointcloud_callback(self, msg):
         """
-        Callback for the /object_detected/middle_point topic.
+        Callback for the /object_detected/pointcloud topic.
         Processes points and transforms them to the map frame.
         """
-        if self.latest_timestamp is None:
-            self.logger.warn("No timestamp received yet, skipping point processing.")
-            return
+        # Get the timestamp from the PointCloud2 message
+        timestamp = msg.header.stamp
 
-        # Wait for the transform if it's not ready
-        
-        #put a while
-        
-        transform = None
+       # Wait for the transform to be available using the PointCloud2's timestamp
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
         try:
+            self.get_logger().info(f"tf_buffer: '{self.tf_buffer}'")
             transform = self.tf_buffer.lookup_transform(
                 'map',  # Target frame
-                'head_front_camera_rgb_optical_frame',  # Source frame
-                self.latest_timestamp,  # Use the latest timestamp received from SegmentationNode
+                msg.header.frame_id,  # Source frame
+                rclpy.time.Time.from_msg(timestamp),  # Timestamp from the message
                 timeout=rclpy.duration.Duration(seconds=0.01)  # Adjust timeout as needed
             )
-        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
-            self.logger.warn(f"Transform lookup failed: {e}. Retrying...")
-            return  # Exit early if transform is unavailable
 
-        # Parse the Float32MultiArray message
-        points = self.parse_points_from_message(msg)
+            # Calculate the time difference between the point cloud timestamp and the transform
+            time_diff = ((transform.header.stamp - timestamp).nanoseconds)  # In seconds
+            time_diff = time_diff/ 1e9 
+            self.get_logger().info(f"Using transform (time diff: {time_diff:.3f} seconds)")
+
+            if time_diff > 0.1:  # If the time difference is greater than 0.1 seconds, skip processing
+                self.get_logger().warn(f"Transform is too old ({time_diff:.3f} seconds), skipping point cloud processing.")
+                return
+
+            self.get_logger().info(f"Using transform (time diff: {time_diff:.3f} seconds)")
+
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
+            self.get_logger().warn(f"Transform lookup failed: {e}. Skipping point cloud processing.")
+            return
+        
+        # Extract points from the PointCloud2 message
+        points = self.extract_points_from_pointcloud2(msg)
 
         # Reduce the number of points by filtering based on proximity
         points = self.reduce_points(points)
 
-        # Transform each point, filter by z, and store it
+        # Transform each point and store it
         for point in points:
             transformed_point = self.transform_point(point, transform)
             if transformed_point:  # Check if transformation succeeded
@@ -99,46 +82,43 @@ class MapBuilder(Node):
         # Publish the transformed points as PointCloud2
         self.publish_point_cloud()
 
-    def parse_points_from_message(self, message):
+    def extract_points_from_pointcloud2(self, msg):
         """
-        Parse 3D points with labels from the Float32MultiArray message.
+        Extracts points with labels from a PointCloud2 message.
         """
         points = []
-        data = message.data
-        for i in range(0, len(data), 4):  # Each point is [x, y, z, label_id]
-            x, y, z, label_id = data[i:i+4]
-            points.append({'x': x, 'y': y, 'z': z, 'label': int(label_id)})
+        for point in pc2.read_points(msg, field_names=('x', 'y', 'z', 'label'), skip_nans=True):
+            x, y, z, label = point
+            points.append({'x': x, 'y': y, 'z': z, 'label': int(label)})
         return points
 
     def is_valid_point(self, point):
         """
         Checks if a point has valid numerical values for x, y, and z.
         """
-        return not any(math.isnan(point[dim]) for dim in ['x', 'y', 'z'])
+        return not any(math.isnan(point[dim]) or math.isinf(point[dim]) for dim in ['x', 'y', 'z'])
 
     def transform_point(self, point, transform):
         """
-        Transforms a point from the camera frame to the map frame.
+        Transforms a point from the source frame to the target frame.
         """
         if transform is None:
-            self.logger.error("Transform is None. Skipping point transformation.")
+            self.get_logger().error("Transform is None. Skipping point transformation.")
             return None
 
         try:
-            # Check for NaN values in translation and rotation explicitly
+            # Check if transform contains NaN or Inf values
             translation = transform.transform.translation
             rotation = transform.transform.rotation
-
-            if any(math.isnan(v) for v in [translation.x, translation.y, translation.z]):
-                self.logger.error(f"Transform translation contains NaN values: {translation}")
+            if any(math.isnan(val) or math.isinf(val) for val in [translation.x, translation.y, translation.z]):
+                self.get_logger().error(f"Transform contains invalid translation values: {translation}")
                 return None
-
-            if any(math.isnan(v) for v in [rotation.x, rotation.y, rotation.z, rotation.w]):
-                self.logger.error(f"Transform rotation contains NaN values: {rotation}")
+            if any(math.isnan(val) or math.isinf(val) for val in [rotation.x, rotation.y, rotation.z, rotation.w]):
+                self.get_logger().error(f"Transform contains invalid rotation values: {rotation}")
                 return None
 
             point_stamped = PointStamped()
-            point_stamped.header.frame_id = 'head_front_camera_rgb_optical_frame'
+            point_stamped.header.frame_id = transform.header.frame_id
             point_stamped.point.x = point['x']
             point_stamped.point.y = point['y']
             point_stamped.point.z = point['z']
@@ -150,7 +130,7 @@ class MapBuilder(Node):
                 'z': transformed_point_stamped.point.z,
             }
         except Exception as e:
-            self.logger.error(f"Failed to transform point: {e}")
+            self.get_logger().error(f"Failed to transform point: {e}")
             return None
 
     def publish_point_cloud(self):
@@ -163,7 +143,7 @@ class MapBuilder(Node):
 
         # Create a PointCloud2 message
         cloud_msg = PointCloud2()
-        cloud_msg.header.stamp = self.latest_timestamp
+        cloud_msg.header.stamp = self.get_clock().now().to_msg()
         cloud_msg.header.frame_id = 'map'  # Use the map frame for visualization
 
         # Define the PointField structure for x, y, z, and label
@@ -188,7 +168,7 @@ class MapBuilder(Node):
 
         # Publish the PointCloud2 message
         self.point_cloud_pub.publish(cloud_msg)
-        self.logger.info(f"Published PointCloud2 with {len(self.transformed_points)} points")
+        self.get_logger().info(f"Published PointCloud2 with {len(self.transformed_points)} points")
 
     def reduce_points(self, points):
         """
@@ -200,15 +180,17 @@ class MapBuilder(Node):
 
         for point in points:
             if not self.is_valid_point(point):
-                self.logger.warn(f"Invalid point detected and skipped: {point}")
+                self.get_logger().warn(f"Invalid point detected and skipped: {point}")
                 continue
 
             too_close = False
             for f_point in filtered_points:
+                if not self.is_valid_point(f_point):  # Skip invalid points in filtered points list
+                    continue
                 dist = math.sqrt(
                     (point['x'] - f_point['x']) ** 2 +
                     (point['y'] - f_point['y']) ** 2 +
-                    (point['z'] - f_point['z']) ** 2
+                    (point['z'] - f_point['z']) ** 2  # Ensure valid z values
                 )
                 if dist < distance_threshold:
                     too_close = True
@@ -223,20 +205,20 @@ class MapBuilder(Node):
         Check if the point is too close to any other point in the output point cloud.
         """
         if not self.is_valid_point(point):
-            self.logger.warn(f"Point contains invalid values and will be skipped: {point}")
+            self.get_logger().warn(f"Point contains invalid values and will be skipped: {point}")
             return True
 
         distance_threshold = 0.01  # Minimum distance between points
 
         for f_point in self.transformed_points:
-            if not self.is_valid_point(f_point):
-                self.logger.warn(f"Existing transformed point contains invalid values: {f_point}")
+            if not self.is_valid_point(f_point):  # Ensure existing transformed point is valid
+                self.get_logger().warn(f"Existing transformed point contains invalid values: {f_point}")
                 continue
 
             dist = math.sqrt(
                 (point['x'] - f_point['x']) ** 2 +
                 (point['y'] - f_point['y']) ** 2 +
-                (point['z'] - f_point['z']) ** 2
+                (point['z'] - f_point['z']) ** 2  # Ensure valid z values
             )
             if dist < distance_threshold:
                 return True  # The point is too close to an existing point
@@ -244,43 +226,12 @@ class MapBuilder(Node):
         return False
 
 
-####################
-######  MAIN  ######
-####################
+def main(args=None):
+    rclpy.init(args=args)
+    node = MapBuilder()
+    rclpy.spin(node)
+    rclpy.shutdown()
 
 
-def main():
-    
-    # Path for 'settings.json' file
-    json_file_path = ".//rob7_760_2024//settings.json"
-
-    # Instance the 'JSON_Handler' class for interacting with the 'settings.json' file
-    json_handler = JSON_Handler(json_file_path)
-    
-    # Get settings from 'settings.json' file
-    NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("Object_det_cloud", "NODE_LOG_LEVEL")
-
-    # Initialize the rclpy library.
-    rclpy.init()
-
-    # Sets the logging level of importance. 
-    # When setting, one is setting the lowest level of importance one is interested in logging.
-    # Logging level is defined in settings.json.
-    # Logging levels:
-    # - DEBUG
-    # - INFO
-    # - WARNING
-    # - ERROR
-    # - FATAL
-    # The eval method interprets a string as a command.
-    rclpy.logging.set_logger_level("map_builder", eval(NODE_LOG_LEVEL))
-    
-    # Instance the main class
-    map_builder = MapBuilder()
-
-    # Begin looping the node
-    rclpy.spin(map_builder)
-    
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

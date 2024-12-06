@@ -1,5 +1,3 @@
-from rob7_760_2024.LIB import JSON_Handler
-
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2, PointField
@@ -11,20 +9,8 @@ from sklearn.cluster import DBSCAN
 
 class GetCentroids(Node):
     def __init__(self):
+        super().__init__('get_centroids')
 
-        # Initialising the 'Node' class, from which this class is inheriting, with argument 'node_name'.
-        Node.__init__(self, 'get_centroids')
-        self.logger = self.get_logger()
-
-        # This is the ROS2 Humble logging system, which is build on the Logging module for Python.
-        # It displays messages with developer specified importance.
-        # Here all the levels of importance are used to indicate that the script is running.
-        self.logger.debug("Hello world!")
-        self.logger.info("Hello world!")
-        self.logger.warning("Hello world!")
-        self.logger.error("Hello world!")
-        self.logger.fatal("Hello world!")
-        
         # Subscribe to the 3D points topic from object_det_cloud
         self.point_sub = self.create_subscription(
             PointCloud2, '/transformed_points', self.transformed_points_callback, 10)
@@ -40,7 +26,7 @@ class GetCentroids(Node):
         self.transformed_points = []
         self.cloud_obstacles = []
 
-        self.logger.info("GetCentroids Node initialized.")
+        self.get_logger().info("GetCentroids Node initialized.")
 
     def transformed_points_callback(self, msg):
         """
@@ -49,7 +35,7 @@ class GetCentroids(Node):
         """
         self.transformed_points = list(pc2.read_points(
             msg, field_names=["x", "y", "z", "label"], skip_nans=True))
-        self.logger.info(f"Received {len(self.transformed_points)} transformed points.")
+        self.get_logger().info(f"Received {len(self.transformed_points)} transformed points.")
 
     def cloud_obstacles_callback(self, msg):
         """
@@ -58,7 +44,7 @@ class GetCentroids(Node):
         """
         self.cloud_obstacles = list(pc2.read_points(
             msg, field_names=["x", "y", "z"], skip_nans=True))
-        self.logger.info(f"Received {len(self.cloud_obstacles)} obstacle points.")
+        self.get_logger().info(f"Received {len(self.cloud_obstacles)} obstacle points.")
 
         # Once obstacles are received, process and publish the filtered points
         self.process_and_publish_centroids()
@@ -68,7 +54,7 @@ class GetCentroids(Node):
         Process the points to compute centroids for subclusters based on label_id.
         """
         if not self.transformed_points or not self.cloud_obstacles:
-            self.logger.warning("No data to process. Waiting for both topics.")
+            self.get_logger().warning("No data to process. Waiting for both topics.")
             return
 
         # Convert obstacle points to numpy array for efficient distance computation
@@ -85,10 +71,10 @@ class GetCentroids(Node):
             if np.any(distances < distance_threshold):
                 filtered_points.append((x, y, z, label_id))
 
-        self.logger.info(f"Filtered down to {len(filtered_points)} points near obstacles.")
+        self.get_logger().info(f"Filtered down to {len(filtered_points)} points near obstacles.")
 
         if not filtered_points:
-            self.logger.warning("No points to cluster after filtering.")
+            self.get_logger().warning("No points to cluster after filtering.")
             return
 
         # Perform clustering and compute centroids
@@ -226,46 +212,21 @@ def generate_launch_description():
 
         # Publish the centroid point cloud
         self.point_cloud_pub.publish(centroid_cloud)
-        self.logger.info("Published centroid point cloud.")
+        self.get_logger().info(f"Published centroid point cloud: '{centroid_cloud}'")
 
 
-####################
-######  MAIN  ######
-####################
+def main(args=None):
+    rclpy.init(args=args)
+    node = GetCentroids()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        node.get_logger().info("Shutting down GetCentroids Node.")
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
 
-def main():
-    
-    # Path for 'settings.json' file
-    json_file_path = ".//rob7_760_2024//settings.json"
-
-    # Instance the 'JSON_Handler' class for interacting with the 'settings.json' file
-    json_handler = JSON_Handler(json_file_path)
-    
-    # Get settings from 'settings.json' file
-    NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("Get_centroids", "NODE_LOG_LEVEL")
-
-    # Initialize the rclpy library.
-    rclpy.init()
-
-    # Sets the logging level of importance. 
-    # When setting, one is setting the lowest level of importance one is interested in logging.
-    # Logging level is defined in settings.json.
-    # Logging levels:
-    # - DEBUG
-    # - INFO
-    # - WARNING
-    # - ERROR
-    # - FATAL
-    # The eval method interprets a string as a command.
-    rclpy.logging.set_logger_level("get_centroids", eval(NODE_LOG_LEVEL))
-    
-    # Instance the main class
-    get_centroids = GetCentroids()
-
-    # Begin looping the node
-    rclpy.spin(get_centroids)
-    
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

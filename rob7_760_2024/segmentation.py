@@ -1,192 +1,155 @@
-from rob7_760_2024.LIB import JSON_Handler
-
 import numpy as np
 import cv2
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image, CameraInfo
-from std_msgs.msg import Float32MultiArray, Header
+from sensor_msgs.msg import Image, CameraInfo, PointCloud2, PointField
 from cv_bridge import CvBridge
 from ultralytics import YOLO
 import torch
-
-import time
+import struct
+import sensor_msgs_py.point_cloud2 as pc2
 
 
 class ImageSegmentationNode(Node):
     def __init__(self):
-        
-        # Initialising the 'Node' class, from which this class is inheriting, with argument 'node_name'.
-        Node.__init__(self, 'image_segmentation_node')
-        self.logger = self.get_logger()
+        super().__init__('image_segmentation_node')  # Initialize the ROS2 node
 
-        # This is the ROS2 Humble logging system, which is build on the Logging module for Python.
-        # It displays messages with developer specified importance.
-        # Here all the levels of importance are used to indicate that the script is running.
-        self.logger.debug("Hello world!")
-        self.logger.info("Hello world!")
-        self.logger.warning("Hello world!")
-        self.logger.error("Hello world!")
-        self.logger.fatal("Hello world!")
-        
-        # Frame counters to process every 4th frame
+        # Frame counters to process every 10th frame (reduces computational load)
         self.rgb_frame_counter = 0
         self.depth_frame_counter = 0
 
-        # Subscriptions
+        # Subscriptions for RGB, depth images, and camera info
         self.rgb_subscription = self.create_subscription(
             Image,
-            '/head_front_camera/rgb/image_raw',  # Change to your RGB topic
-            self.rgb_callback,
-            10
+            '/head_front_camera/rgb/image_raw',  # Topic for raw RGB images
+            self.rgb_callback,  # Callback function to process RGB images
+            10  # Queue size
         )
         self.depth_subscription = self.create_subscription(
             Image,
-            '/head_front_camera/depth_registered/image_raw',  # Change to your depth topic
-            self.depth_callback,
-            10
+            '/head_front_camera/depth_registered/image_raw',  # Topic for raw depth images
+            self.depth_callback,  # Callback function to process depth images
+            10  # Queue size
         )
         self.camera_info_subscription = self.create_subscription(
             CameraInfo,
-            '/head_front_camera/rgb/camera_info',  # Change to your CameraInfo topic
-            self.camera_info_callback,
-            10
+            '/head_front_camera/rgb/camera_info',  # Topic for camera info (intrinsics)
+            self.camera_info_callback,  # Callback to process camera intrinsics
+            10  # Queue size
         )
 
-        # Publisher for 3D points
-        self.point_pub = self.create_publisher(
-            Float32MultiArray, 
-            '/object_detected/middle_point', 
-            10
+        # Publisher for 3D points as a PointCloud2 message
+        self.pointcloud_pub = self.create_publisher(
+            PointCloud2,  # Publish as PointCloud2 message
+            '/object_detected/pointcloud',  # Topic for the point cloud
+            10  # Queue size
         )
 
-        # Publisher for timestamp
-        self.timestamp_pub = self.create_publisher(
-            Header, 
-            '/object_detected/image_timestamp', 
-            10
-        )
+        # Initialize utilities
+        self.bridge = CvBridge()  # For converting ROS Image messages to OpenCV
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"  # Select computation device
+        self.get_logger().info(f"Using device: {self.device}")  # Log the chosen device
+        self.model = YOLO("yolo11x-seg.pt")  # Load the YOLO model for segmentation
+        self.camera_matrix = None  # Placeholder for camera intrinsic matrix
+        self.depth_image = None  # Placeholder for the latest depth image
+        self.camera_info_received = False  # Flag to ensure camera info is received
 
-        # Other initializations (e.g., YOLO model, etc.)
-        self.bridge = CvBridge()
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.logger.info(f"Using device: {self.device}")
-        self.model = YOLO("yolo11x-seg.pt")
-        self.camera_matrix = None
-        self.depth_image = None
-        self.camera_info_received = False
-
-        # Define label mapping
+        # Mapping object labels to unique IDs for easier handling
         self.label_mapping = {
-            'person': 1.0,
-            'couch': 2.0,
-            'chair': 3.0,
-            'tv': 4.0,
-            'cup': 5.0,
-            'sink': 6.0,
-            'spoon': 7.0,
-            'vase': 8.0,
-            'refrigerator': 9.0,
-            'dining table': 10.0,
-            'sports ball': 11.0,
-            'cell phone': 12.0,
-            'bench': 13.0,
-            'bed': 14.0
+            'person': 1,
+            'couch': 2,
+            'chair': 3,
+            'tv': 4,
+            'cup': 5,
+            'sink': 6,
+            'spoon': 7,
+            'vase': 8,
+            'refrigerator': 9,
+            'dining table': 10,
+            'sports ball': 11,
+            'cell phone': 12,
+            'bench': 13,
+            'bed': 14
         }
 
     def rgb_callback(self, msg):
-        """Callback for RGB Image messages."""
-        self.rgb_frame_counter += 1
-        
-        # Process only the 4th RGB frame
-        if self.rgb_frame_counter % 10 != 0:
-            return  # Skip processing and publishing
-        
-        # Reset counter periodically to avoid overflow
+        """Callback to process incoming RGB image messages."""
+        self.rgb_frame_counter += 1  # Increment the frame counter
+
+        # Skip processing for all but every 10th frame to reduce load
+        if self.rgb_frame_counter % 30 != 0:
+            return
+
+        # Periodically reset the frame counter to avoid overflow
         if self.rgb_frame_counter >= 10000:
             self.rgb_frame_counter = 0
 
-        # Check if required data is available
+        # Ensure camera info and depth image are available
         if not self.camera_info_received or self.depth_image is None:
-            self.logger.warn("CameraInfo or Depth Image not received yet, skipping processing.")
+            self.get_logger().warn("CameraInfo or Depth Image not received yet, skipping processing.")
             return
-        
-        # Convert the ROS Image message to OpenCV
+
+        # Convert ROS RGB image message to OpenCV format
         rgb_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
-        # Resize rgb and depth image to 320x240
-        #rgb_image = cv2.resize(rgb_image, (640, 480))
-        depth_image = self.depth_image #cv2.resize(self.depth_image, (320, 240)) 
+        # Reference the latest depth image
+        depth_image = self.depth_image
 
-        # Segment the image and get masks with labels
+        # Perform segmentation to get labeled masks
         _, labeled_masks = self.segment_image(rgb_image)
 
-        # Ensure masks are resized to match the depth image size
-        #labeled_masks_resized = self.resize_masks_to_depth_size(labeled_masks, depth_image)
-
-        # Find 3D positions in the segmented masks
+        # Compute 3D positions for detected objects
         labeled_points_3d = self.find_3d_positions(labeled_masks, depth_image)
 
-        # Publish the 3D points with labels
-        self.publish_points(labeled_points_3d)
-
-        # Publish the timestamp at the same time
-        self.publish_timestamp(msg.header.stamp)
+        # Publish the 3D points as a PointCloud2 message
+        self.publish_pointcloud(labeled_points_3d, msg.header.stamp)
 
     def depth_callback(self, msg):
-        """Callback for Depth Image messages."""
-        self.depth_frame_counter += 1
-        
-        # Process only the 4th depth frame
-        if self.depth_frame_counter % 10 != 0:
-            return  # Skip processing the depth image
-        
-        # Reset counter periodically to avoid overflow
+        """Callback to process incoming depth image messages."""
+        self.depth_frame_counter += 1  # Increment the frame counter
+
+        # Skip processing for all but every 10th frame to reduce load
+        if self.depth_frame_counter % 30 != 0:
+            return
+
+        # Periodically reset the frame counter to avoid overflow
         if self.depth_frame_counter >= 10000:
             self.depth_frame_counter = 0
 
-        # Convert the ROS Image message to OpenCV
+        # Convert ROS depth image message to OpenCV format
         self.depth_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
 
     def camera_info_callback(self, msg):
-        """Callback for CameraInfo messages."""
-        self.camera_matrix = np.array(msg.k).reshape((3, 3))  # Intrinsic camera matrix
-        self.camera_info_received = True
-        self.logger.info('Camera info received!')
+        """Callback to process incoming camera intrinsic parameters."""
+        # Extract the camera intrinsic matrix from the CameraInfo message
+        self.camera_matrix = np.array(msg.k).reshape((3, 3))
+        self.camera_info_received = True  # Mark that camera info is received
+        self.get_logger().info('Camera info received!')
 
     def segment_image(self, image):
-        """Perform YOLO-based segmentation and return labeled masks."""
-        # Use the original 640x480 image directly (no resizing)
+        """Perform YOLO-based segmentation on the RGB image."""
         results = self.model.predict(image, device=self.device, task='segment')
         labeled_masks = {}
 
         for result in results:
-            if result.masks is None:
+            if result.masks is None:  # Skip if no masks are found
                 continue
 
+            # Process detected masks and bounding boxes
             for mask, box in zip(result.masks.data, result.boxes):
                 confidence = float(box.conf[0])
                 label_index = int(box.cls[0])
-                label = self.model.names[label_index]  # Use YOLO model's label for detected objects
+                label = self.model.names[label_index]
 
-                # Only process objects with confidence > 0.65 and in label mapping
+                # Include only objects with high confidence and relevant labels
                 if confidence > 0.65 and label in self.label_mapping:
                     mask_resized = mask.cpu().numpy().astype(np.uint8)
                     labeled_masks[label] = mask_resized
 
         return image, labeled_masks
 
-    def resize_masks_to_depth_size(self, labeled_masks, depth_image):
-        """Resize the masks to match the depth image size."""
-        height, width = depth_image.shape
-        resized_masks = {}
-        #for label, mask in labeled_masks.items():
-            # Resize each mask to the depth image size (480x640)
-            #resized_masks[label] = cv2.resize(mask, (640, 480), interpolation=cv2.INTER_NEAREST)
-        return resized_masks
-
     def find_3d_positions(self, labeled_masks, depth_image):
-        """Find the 3D positions of points in the segmented masks with labels."""
+        """Compute 3D positions of objects using depth data."""
         labeled_points_3d = []
         fx, fy = self.camera_matrix[0, 0], self.camera_matrix[1, 1]
         cx, cy = self.camera_matrix[0, 2], self.camera_matrix[1, 2]
@@ -198,7 +161,7 @@ class ImageSegmentationNode(Node):
                 for u in range(width):
                     if mask[v, u]:
                         depth_value = depth_image[v, u]
-                        if depth_value == 0:
+                        if depth_value == 0:  # Skip invalid depth values
                             continue
                         z = depth_value
                         x = (u - cx) * z / fx
@@ -207,66 +170,41 @@ class ImageSegmentationNode(Node):
 
         return labeled_points_3d
 
-    def publish_points(self, labeled_points_3d):
-        """Publish the labeled 3D points."""
-        point_array = Float32MultiArray()
-        for point in labeled_points_3d:
-            x, y, z, label_id = point
-            point_array.data.extend([x, y, z, label_id])
-        self.point_pub.publish(point_array)
-        self.logger.info(f"Published {len(labeled_points_3d)} labeled 3D points")
+    def publish_pointcloud(self, labeled_points_3d, timestamp):
+        """Publish detected 3D points as a PointCloud2 message."""
+        pointcloud_msg = PointCloud2()
+        pointcloud_msg.header.stamp = timestamp
+        pointcloud_msg.header.frame_id = 'head_front_camera_rgb_optical_frame'
 
-    def publish_timestamp(self, timestamp):
-        """Publish the image timestamp."""
-        header = Header()
-        header.stamp = timestamp
-        self.timestamp_pub.publish(header)
-        self.logger.info(f"Published timestamp: {timestamp}")
+        fields = [
+            PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
+            PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
+            PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1),
+            PointField(name='label', offset=12, datatype=PointField.UINT32, count=1),
+        ]
+        pointcloud_msg.fields = fields
+
+        pointcloud_data = [struct.pack('fffI', x, y, z, label_id) for x, y, z, label_id in labeled_points_3d]
+        pointcloud_msg.data = b''.join(pointcloud_data)
+        pointcloud_msg.is_bigendian = False
+        pointcloud_msg.point_step = 16
+        pointcloud_msg.row_step = pointcloud_msg.point_step * len(labeled_points_3d)
+        pointcloud_msg.is_dense = True
+        pointcloud_msg.width = len(labeled_points_3d)
+        pointcloud_msg.height = 1
+
+        self.pointcloud_pub.publish(pointcloud_msg)
+        self.get_logger().info(f"Published PointCloud2 with {len(labeled_points_3d)} points")
 
 
-####################
-######  MAIN  ######
-####################
+def main(args=None):
+    """Initialize and run the ROS2 node."""
+    rclpy.init(args=args)
+    node = ImageSegmentationNode()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
 
 
-def main():
-    
-    # Path for 'settings.json' file
-    json_file_path = ".//rob7_760_2024//settings.json"
-
-    # Instance the 'JSON_Handler' class for interacting with the 'settings.json' file
-    json_handler = JSON_Handler(json_file_path)
-    
-    # Get settings from 'settings.json' file
-    NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("Segmentation", "NODE_LOG_LEVEL")
-
-    # Initialize the rclpy library.
-    rclpy.init()
-
-    # Sets the logging level of importance. 
-    # When setting, one is setting the lowest level of importance one is interested in logging.
-    # Logging level is defined in settings.json.
-    # Logging levels:
-    # - DEBUG
-    # - INFO
-    # - WARNING
-    # - ERROR
-    # - FATAL
-    # The eval method interprets a string as a command.
-    rclpy.logging.set_logger_level("image_segmentation_node", eval(NODE_LOG_LEVEL))
-    
-    # Instance the main class
-    image_segmentation_node = ImageSegmentationNode()
-
-    # Begin looping the node
-    rclpy.spin(image_segmentation_node)
-    
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
-    
-    
-    
-    
-    
-    
