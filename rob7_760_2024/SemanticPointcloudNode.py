@@ -47,32 +47,33 @@ class SemanticPointcloudNode(Node):
         Processes points and transforms them to the map frame.
         """
         # Get the timestamp from the PointCloud2 message
-        timestamp = msg.header.stamp
+        msg_timestamp = msg.header.stamp
 
        # Wait for the transform to be available using the PointCloud2's timestamp
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
         try:
-            self.get_logger().info(f"tf_buffer: '{self.tf_buffer}'")
+            self.logger.info(f"tf_buffer: '{self.tf_buffer}'")
             transform = self.tf_buffer.lookup_transform(
                 'map',  # Target frame
                 msg.header.frame_id,  # Source frame
-                rclpy.time.Time.from_msg(timestamp),  # Timestamp from the message
+                rclpy.time.Time.from_msg(msg_timestamp),  # Timestamp from the message
                 timeout=rclpy.duration.Duration(seconds=0.01)  # Adjust timeout as needed
             )
 
+            transform_time = transform.header.stamp
             # Calculate the time difference between the point cloud timestamp and the transform
-            time_diff = ((transform.header.stamp - timestamp).nanoseconds)  # In seconds
+            time_diff = ((float(transform_time) - float(msg_timestamp)).nanoseconds)  # In seconds
             time_diff = time_diff/ 1e9 
-            self.get_logger().info(f"Using transform (time diff: {time_diff:.3f} seconds)")
+            self.logger.info(f"Using transform (time diff: {time_diff:.3f} seconds)")
 
             if time_diff > 0.1:  # If the time difference is greater than 0.1 seconds, skip processing
-                self.get_logger().warn(f"Transform is too old ({time_diff:.3f} seconds), skipping point cloud processing.")
+                self.logger.warn(f"Transform is too old ({time_diff:.3f} seconds), skipping point cloud processing.")
                 return
 
-            self.get_logger().info(f"Using transform (time diff: {time_diff:.3f} seconds)")
+            self.logger.info(f"Using transform (time diff: {time_diff:.3f} seconds)")
 
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
-            self.get_logger().warn(f"Transform lookup failed: {e}. Skipping point cloud processing.")
+            self.logger.warn(f"Transform lookup failed: {e}. Skipping point cloud processing.")
             return
         
         # Extract points from the PointCloud2 message
@@ -117,7 +118,7 @@ class SemanticPointcloudNode(Node):
         Transforms a point from the source frame to the target frame.
         """
         if transform is None:
-            self.get_logger().error("Transform is None. Skipping point transformation.")
+            self.logger.error("Transform is None. Skipping point transformation.")
             return None
 
         try:
@@ -125,10 +126,10 @@ class SemanticPointcloudNode(Node):
             translation = transform.transform.translation
             rotation = transform.transform.rotation
             if any(math.isnan(val) or math.isinf(val) for val in [translation.x, translation.y, translation.z]):
-                self.get_logger().error(f"Transform contains invalid translation values: {translation}")
+                self.logger.error(f"Transform contains invalid translation values: {translation}")
                 return None
             if any(math.isnan(val) or math.isinf(val) for val in [rotation.x, rotation.y, rotation.z, rotation.w]):
-                self.get_logger().error(f"Transform contains invalid rotation values: {rotation}")
+                self.logger.error(f"Transform contains invalid rotation values: {rotation}")
                 return None
 
             point_stamped = PointStamped()
@@ -144,7 +145,7 @@ class SemanticPointcloudNode(Node):
                 'z': transformed_point_stamped.point.z,
             }
         except Exception as e:
-            self.get_logger().error(f"Failed to transform point: {e}")
+            self.logger.error(f"Failed to transform point: {e}")
             return None
 
     def publish_point_cloud(self):
@@ -182,7 +183,7 @@ class SemanticPointcloudNode(Node):
 
         # Publish the PointCloud2 message
         self.point_cloud_pub.publish(cloud_msg)
-        self.get_logger().info(f"Published PointCloud2 with {len(self.transformed_points)} points")
+        self.logger.info(f"Published PointCloud2 with {len(self.transformed_points)} points")
 
     def reduce_points(self, points):
         """
@@ -194,7 +195,7 @@ class SemanticPointcloudNode(Node):
 
         for point in points:
             if not self.is_valid_point(point):
-                self.get_logger().warn(f"Invalid point detected and skipped: {point}")
+                self.logger.warn(f"Invalid point detected and skipped: {point}")
                 continue
 
             too_close = False
@@ -219,14 +220,14 @@ class SemanticPointcloudNode(Node):
         Check if the point is too close to any other point in the output point cloud.
         """
         if not self.is_valid_point(point):
-            self.get_logger().warn(f"Point contains invalid values and will be skipped: {point}")
+            self.logger.warn(f"Point contains invalid values and will be skipped: {point}")
             return True
 
         distance_threshold = 0.01  # Minimum distance between points
 
         for f_point in self.transformed_points:
             if not self.is_valid_point(f_point):  # Ensure existing transformed point is valid
-                self.get_logger().warn(f"Existing transformed point contains invalid values: {f_point}")
+                self.logger.warn(f"Existing transformed point contains invalid values: {f_point}")
                 continue
 
             dist = math.sqrt(

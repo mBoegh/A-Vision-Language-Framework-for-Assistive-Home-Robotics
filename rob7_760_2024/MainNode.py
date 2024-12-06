@@ -5,6 +5,7 @@ from rclpy.node import Node
 from std_msgs.msg import String, Bool
 from sensor_msgs.msg import PointCloud2
 from geometry_msgs.msg import PoseWithCovarianceStamped
+import sensor_msgs_py.point_cloud2 as pc2
 
 import math
 from itertools import product
@@ -101,6 +102,9 @@ class MainNode(Node):
         self.logger.debug(f"Loaded trigger_bool_msg with data: '{self.trigger_bool_msg.data}'")
         self.trigger_publisher.publish(self.trigger_bool_msg)
         self.logger.debug(f"Published trigger_bool_msg using trigger_bool_publisher.")
+        
+        # Publisher for the filtered points as PointCloud2
+        self.centroids_subscriber = self.create_subscription(PointCloud2, '/centroids', self.centroids_callback, 10)
 
     #############################
     ### Callback Functions ######
@@ -130,7 +134,13 @@ class MainNode(Node):
         self.robot_x = msg.pose.pose.position.x
         self.robot_y = msg.pose.pose.position.y
         self.robot_z = msg.pose.pose.position.z
-        self.get_logger().debug(f'Robot position - x: {self.robot_x}, y: {self.robot_y}, z: {self.robot_z}')
+        self.logger.debug(f'Robot position - x: {self.robot_x}, y: {self.robot_y}, z: {self.robot_z}')
+
+    def centroids_callback(self, msg):
+        self.centroids = list(pc2.read_points(
+            msg, field_names=["x", "y", "z", "label"], skip_nans=True))
+        self.logger.debug(f"Received {len(self.centroids)} labeled centroids: '{self.centroids}'")
+
 
     ###########################
     ### Utility Functions #####

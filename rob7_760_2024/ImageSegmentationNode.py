@@ -62,7 +62,7 @@ class ImageSegmentationNode(Node):
         # Initialize utilities
         self.bridge = CvBridge()  # For converting ROS Image messages to OpenCV
         self.device = "cuda" if torch.cuda.is_available() else "cpu"  # Select computation device
-        self.get_logger().info(f"Using device: {self.device}")  # Log the chosen device
+        self.logger.info(f"Using device: {self.device}")  # Log the chosen device
         self.model = YOLO("yolo11x-seg.pt")  # Load the YOLO model for segmentation
         self.camera_matrix = None  # Placeholder for camera intrinsic matrix
         self.depth_image = None  # Placeholder for the latest depth image
@@ -100,7 +100,7 @@ class ImageSegmentationNode(Node):
 
         # Ensure camera info and depth image are available
         if not self.camera_info_received or self.depth_image is None:
-            self.get_logger().warn("CameraInfo or Depth Image not received yet, skipping processing.")
+            self.logger.warn("CameraInfo or Depth Image not received yet, skipping processing.")
             return
 
         # Convert ROS RGB image message to OpenCV format
@@ -138,7 +138,7 @@ class ImageSegmentationNode(Node):
         # Extract the camera intrinsic matrix from the CameraInfo message
         self.camera_matrix = np.array(msg.k).reshape((3, 3))
         self.camera_info_received = True  # Mark that camera info is received
-        self.get_logger().info('Camera info received!')
+        self.logger.info('Camera info received!')
 
     def segment_image(self, image):
         """Perform YOLO-based segmentation on the RGB image."""
@@ -208,7 +208,7 @@ class ImageSegmentationNode(Node):
         pointcloud_msg.height = 1
 
         self.pointcloud_pub.publish(pointcloud_msg)
-        self.get_logger().info(f"Published PointCloud2 with {len(labeled_points_3d)} points")
+        self.logger.info(f"Published PointCloud2 with {len(labeled_points_3d)} points")
 
 
 

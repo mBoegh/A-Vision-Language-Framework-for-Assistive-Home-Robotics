@@ -13,10 +13,9 @@ class LlmNode(Node):
     This is the LLM node of the ROS2 network.
     """
 
-    def __init__(self, timer_period, llm_model, llm_content):
+    def __init__(self, llm_model, llm_content):
 
         # Initialising parsed variables.
-        self.TIMER_PERIOD = timer_period
         self.LLM_MODEL = llm_model
         self.LLM_CONTENT = llm_content
         
@@ -41,9 +40,6 @@ class LlmNode(Node):
 
         self.trigger = False
 
-        # Initialising a timer. The timer periodically calls the timer_callback function. This is essentially a while loop with a set frequency.
-        self.timer = self.create_timer(self.TIMER_PERIOD, self.timer_callback)
-
         # Initialising a publisher to the topic '/object_list'.
         # On this topic is expected data of type std_msgs.msg.String which is imported as String.
         # The '10' argument is some Quality of Service parameter (QoS).
@@ -53,6 +49,8 @@ class LlmNode(Node):
         self.object_list_msg = String()
         
         self.trigger_subscriber = self.create_subscription(Bool, '/trigger', self.trigger_callback, 10)
+
+        self.user_input_subscriber = self.create_subscription(String, '/user_input', self.user_input_callback, 10)
         
         #########################
         ### Example Publisher ###
@@ -100,20 +98,15 @@ class LlmNode(Node):
         self.logger.debug(f"Received data '{msg.data}'")
         
         if msg.data == True:
-            self.timer.reset()
             self.trigger = True
 
 
-    def timer_callback(self):
+    def user_input_callback(self, msg):
         # The callback function called during each period of the timer.
         
+        self.logger.fatal(f"Received user_input message: '{msg.data}'")
+        
         if self.trigger == True:
-
-            self.user_input = input("Enter your command (or type 'exit' to quit): ")
-            if self.user_input.lower() == 'exit':
-                self.logger.info("Exiting the program. Goodbye!")
-                rclpy.shutdown()
-                quit()
 
             self.response = self.client.chat.completions.create(
                 messages=[
@@ -121,7 +114,7 @@ class LlmNode(Node):
                         "role": "system",
                         "content": self.LLM_CONTENT
                     },
-                    {"role": "user", "content": self.user_input},
+                    {"role": "user", "content": msg.data},
                 ],
                 model=self.LLM_MODEL,
             )
@@ -151,7 +144,6 @@ def main():
     json_handler = JSON_Handler(json_file_path)
     
     # Get settings from 'settings.json' file
-    TIMER_PERIOD = json_handler.get_subkey_value("LlmNode", "TIMER_PERIOD")
     LLM_MODEL = json_handler.get_subkey_value("LlmNode", "LLM_MODEL")
     LLM_CONTENT = json_handler.get_subkey_value("LlmNode", "LLM_CONTENT")
     NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("LlmNode", "NODE_LOG_LEVEL")
@@ -172,7 +164,7 @@ def main():
     rclpy.logging.set_logger_level("llm_node", eval(NODE_LOG_LEVEL))
     
     # Instance the LLM class
-    llm_node = LlmNode(TIMER_PERIOD, LLM_MODEL, LLM_CONTENT)
+    llm_node = LlmNode(LLM_MODEL, LLM_CONTENT)
 
     # Begin looping the node
     rclpy.spin(llm_node)

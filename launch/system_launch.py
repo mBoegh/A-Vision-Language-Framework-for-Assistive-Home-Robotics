@@ -31,11 +31,7 @@ def generate_launch_description():
         'RGBD/MaxNodesRemoval': 2,  # Allow removal of up to 1 node at a time
         
         # use this after initialization
-        'Rtabmap/Localization': True,
-
-
-        
-        
+        'Rtabmap/Localization': True,   
     }]
 
     remappings = [
@@ -86,6 +82,6 @@ def generate_launch_description():
         Node(
             package='rtabmap_viz', executable='rtabmap_viz', output='screen',
             parameters=param,
-           remappings=remappings),    
+            remappings=remappings),    
 
     ])
