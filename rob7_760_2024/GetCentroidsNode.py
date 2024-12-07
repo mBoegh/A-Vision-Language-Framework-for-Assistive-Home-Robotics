@@ -49,7 +49,7 @@ class GetCentroidsNode(Node):
         """
         self.transformed_points = list(pc2.read_points(
             msg, field_names=["x", "y", "z", "label"], skip_nans=True))
-        self.logger.info(f"Received {len(self.transformed_points)} transformed points.")
+        self.logger.debug(f"Received {len(self.transformed_points)} transformed points.")
 
     def cloud_obstacles_callback(self, msg):
         """
@@ -58,7 +58,7 @@ class GetCentroidsNode(Node):
         """
         self.cloud_obstacles = list(pc2.read_points(
             msg, field_names=["x", "y", "z"], skip_nans=True))
-        self.logger.info(f"Received {len(self.cloud_obstacles)} obstacle points.")
+        self.logger.debug(f"Received {len(self.cloud_obstacles)} obstacle points.")
 
         # Once obstacles are received, process and publish the filtered points
         self.process_and_publish_centroids()
@@ -68,7 +68,12 @@ class GetCentroidsNode(Node):
         Process the points to compute centroids for subclusters based on label_id.
         """
         if not self.transformed_points or not self.cloud_obstacles:
-            self.logger.warning("No data to process. Waiting for both topics.")
+            if not self.transformed_points and not self.cloud_obstacles:
+                self.logger.warning("No data to process. Waiting for both topics.")
+            elif not self.transformed_points:
+                self.logger.warning("No data to process. Waiting for transformed_points.")
+            elif not self.cloud_obstacles:
+                self.logger.warning("No data to process. Waiting for cloud_obstacles.")
             return
 
         # Convert obstacle points to numpy array for efficient distance computation
@@ -85,7 +90,7 @@ class GetCentroidsNode(Node):
             if np.any(distances < distance_threshold):
                 filtered_points.append((x, y, z, label_id))
 
-        self.logger.info(f"Filtered down to {len(filtered_points)} points near obstacles.")
+        self.logger.debug(f"Filtered down to {len(filtered_points)} points near obstacles.")
 
         if not filtered_points:
             self.logger.warning("No points to cluster after filtering.")
@@ -226,7 +231,7 @@ def generate_launch_description():
 
         # Publish the centroid point cloud
         self.point_cloud_pub.publish(centroid_cloud)
-        self.logger.info(f"Published centroid point cloud: '{centroid_cloud}'")
+        self.get_logger().info(f"Published centroid point cloud: '{centroid_cloud}'")
     
 def main():
     # Path for 'settings.json' file

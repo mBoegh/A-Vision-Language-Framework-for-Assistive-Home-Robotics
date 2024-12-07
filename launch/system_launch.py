@@ -23,12 +23,12 @@ def generate_launch_description():
         
         'database_path':'~/.ros/rtabmap.db',
         'Mem/IncrementalMemory': 'true',
-        'RGBD/OptimizeFromGraphEnd': 'true',
+        #'RGBD/OptimizeFromGraphEnd': 'true',
         'Grid/MaxObstacleHeight':'1.5',
-        'Rtabmap/LoopClosureDetection':'true',
-        'Mem/NotLinkedNodesKept': 'false',  # Automatically remove unlinked nodes
-        'Mem/STMSize': '10',  # Short-term memory size
-        'RGBD/MaxNodesRemoval': 2,  # Allow removal of up to 1 node at a time
+        #'Rtabmap/LoopClosureDetection':'true',
+        #'Mem/NotLinkedNodesKept': 'false',  # Automatically remove unlinked nodes
+        #'Mem/STMSize': '10',  # Short-term memory size
+        #'RGBD/MaxNodesRemoval': 2,  # Allow removal of up to 1 node at a time
         
         # use this after initialization
         'Rtabmap/Localization': True,   

@@ -10,6 +10,7 @@ import sensor_msgs_py.point_cloud2 as pc2
 
 import struct
 import math
+import random
 
 class SemanticPointcloudNode(Node):
     def __init__(self):
@@ -37,6 +38,8 @@ class SemanticPointcloudNode(Node):
         # Create a TF buffer and listener to get the transforms
         self.tf_buffer = tf2_ros.Buffer(rclpy.duration.Duration(seconds=100))
 
+        #sampling percentage to reduce the incoming pointcloud
+        self.sampling_percentage = 0.1
 
         # List to store transformed points with labels
         self.transformed_points = []
@@ -48,29 +51,37 @@ class SemanticPointcloudNode(Node):
         """
         # Get the timestamp from the PointCloud2 message
         msg_timestamp = msg.header.stamp
-
-       # Wait for the transform to be available using the PointCloud2's timestamp
+        
+        # Wait for the transform to be available using the PointCloud2's timestamp
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
+
         try:
-            self.logger.info(f"tf_buffer: '{self.tf_buffer}'")
+            self.logger.debug(f"tf_buffer: '{self.tf_buffer}'")
             transform = self.tf_buffer.lookup_transform(
                 'map',  # Target frame
                 msg.header.frame_id,  # Source frame
                 rclpy.time.Time.from_msg(msg_timestamp),  # Timestamp from the message
-                timeout=rclpy.duration.Duration(seconds=0.01)  # Adjust timeout as needed
+                timeout=rclpy.duration.Duration(seconds=0.1)  # Adjust timeout as needed
             )
 
             transform_time = transform.header.stamp
-            # Calculate the time difference between the point cloud timestamp and the transform
-            time_diff = ((float(transform_time) - float(msg_timestamp)).nanoseconds)  # In seconds
-            time_diff = time_diff/ 1e9 
-            self.logger.info(f"Using transform (time diff: {time_diff:.3f} seconds)")
 
-            if time_diff > 0.1:  # If the time difference is greater than 0.1 seconds, skip processing
+            # Compute time difference using sec and nanosec
+            time_diff_sec = transform_time.sec - msg_timestamp.sec
+            time_diff_nsec = transform_time.nanosec - msg_timestamp.nanosec
+
+            # If nanosec difference is negative, adjust the seconds
+            if time_diff_nsec < 0:
+                time_diff_sec -= 1
+                time_diff_nsec += 1e9  # Adding one second worth of nanoseconds
+                
+            time_diff = time_diff_sec + time_diff_nsec / 1e9  # Time difference in seconds
+
+            self.logger.debug(f"Using transform (time diff: {time_diff:.3f} seconds)")
+
+            if time_diff > 0.05:  # If the time difference is greater than 0.1 seconds, skip processing
                 self.logger.warn(f"Transform is too old ({time_diff:.3f} seconds), skipping point cloud processing.")
                 return
-
-            self.logger.info(f"Using transform (time diff: {time_diff:.3f} seconds)")
 
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
             self.logger.warn(f"Transform lookup failed: {e}. Skipping point cloud processing.")
@@ -84,16 +95,20 @@ class SemanticPointcloudNode(Node):
 
         # Transform each point and store it
         for point in points:
+     
             transformed_point = self.transform_point(point, transform)
             if transformed_point:  # Check if transformation succeeded
+                
                 # Check if this point is too close to any point in the transformed points list
                 if self.is_point_too_close(transformed_point):
+                   
                     continue  # Skip the point if it's too close to an existing point
-                
+             
                 # Combine point and label in a single dictionary
                 transformed_point['label'] = point['label']
+             
                 self.transformed_points.append(transformed_point)
-
+              
         # Publish the transformed points as PointCloud2
         self.publish_point_cloud()
 
@@ -106,13 +121,7 @@ class SemanticPointcloudNode(Node):
             x, y, z, label = point
             points.append({'x': x, 'y': y, 'z': z, 'label': int(label)})
         return points
-
-    def is_valid_point(self, point):
-        """
-        Checks if a point has valid numerical values for x, y, and z.
-        """
-        return not any(math.isnan(point[dim]) or math.isinf(point[dim]) for dim in ['x', 'y', 'z'])
-
+    
     def transform_point(self, point, transform):
         """
         Transforms a point from the source frame to the target frame.
@@ -134,9 +143,9 @@ class SemanticPointcloudNode(Node):
 
             point_stamped = PointStamped()
             point_stamped.header.frame_id = transform.header.frame_id
-            point_stamped.point.x = point['x']
-            point_stamped.point.y = point['y']
-            point_stamped.point.z = point['z']
+            point_stamped.point.x = float(point['x'])
+            point_stamped.point.y = float(point['y'])
+            point_stamped.point.z = float(point['z'])
 
             transformed_point_stamped = do_transform_point(point_stamped, transform)
             return {
@@ -183,52 +192,29 @@ class SemanticPointcloudNode(Node):
 
         # Publish the PointCloud2 message
         self.point_cloud_pub.publish(cloud_msg)
-        self.logger.info(f"Published PointCloud2 with {len(self.transformed_points)} points")
+        self.logger.fatal(f"Published PointCloud2 with {len(self.transformed_points)} points")
 
     def reduce_points(self, points):
         """
         Reduces the number of points by keeping only those that are not
         within a specified distance of another point.
         """
-        distance_threshold = 0.002  # Minimum distance between points
-        filtered_points = []
+     
+        num_points = len(points)
+        num_points_to_keep = int(num_points * self.sampling_percentage)
+        
+        sampled_points = random.sample(points, num_points_to_keep)
 
-        for point in points:
-            if not self.is_valid_point(point):
-                self.logger.warn(f"Invalid point detected and skipped: {point}")
-                continue
-
-            too_close = False
-            for f_point in filtered_points:
-                if not self.is_valid_point(f_point):  # Skip invalid points in filtered points list
-                    continue
-                dist = math.sqrt(
-                    (point['x'] - f_point['x']) ** 2 +
-                    (point['y'] - f_point['y']) ** 2 +
-                    (point['z'] - f_point['z']) ** 2  # Ensure valid z values
-                )
-                if dist < distance_threshold:
-                    too_close = True
-                    break
-            if not too_close:
-                filtered_points.append(point)
-
-        return filtered_points
+        return sampled_points
 
     def is_point_too_close(self, point):
         """
         Check if the point is too close to any other point in the output point cloud.
         """
-        if not self.is_valid_point(point):
-            self.logger.warn(f"Point contains invalid values and will be skipped: {point}")
-            return True
 
         distance_threshold = 0.01  # Minimum distance between points
 
         for f_point in self.transformed_points:
-            if not self.is_valid_point(f_point):  # Ensure existing transformed point is valid
-                self.logger.warn(f"Existing transformed point contains invalid values: {f_point}")
-                continue
 
             dist = math.sqrt(
                 (point['x'] - f_point['x']) ** 2 +
@@ -239,7 +225,6 @@ class SemanticPointcloudNode(Node):
                 return True  # The point is too close to an existing point
 
         return False
-
 
 def main():
     # Path for 'settings.json' file

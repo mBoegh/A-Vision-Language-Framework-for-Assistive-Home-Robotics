@@ -34,18 +34,7 @@ class MainNode(Node):
         self.logger.error("Hello world!")
         self.logger.fatal("Hello world!")
 
-        # Example N-dimensional data in the format [x, y, z, label_id]
-        self.values = [
-            [1.0, 1.0, 2.0, 3.0],  # chair
-            [2.0, 3.0, 4.0, 5.0],  # cup
-            [4.0, 6.0, 3.0, 5.0],  # cup
-            [7.0, 9.0, 5.0, 6.0],  # sink
-            [8.0, 8.0, 9.0, 7.0],  # spoon
-            [20.0, 16.0, 3.0, 7.0],  # spoon
-            [3.0, 3.0, 7.0, 9.0],  # refrigerator
-            [2.0, 5.0, 4.0, 6.0],  # sink
-            [3.0, 4.0, 6.0, 8.0],  # vase
-        ]
+        self.trigger = False
 
         # Define label mapping
         self.label_mapping = {
@@ -73,9 +62,9 @@ class MainNode(Node):
         self.last_label_positions = None  # Initialize last_label_positions
 
         # Initialize robot position
-        self.robot_x = 5.0
-        self.robot_y = 21.0
-        self.robot_z = 10.0
+        self.robot_x = 0.0
+        self.robot_y = 0.0
+        self.robot_z = 0.0
 
         # Initializing a timer that periodically calls the timer_callback function.
         self.timer = self.create_timer(self.TIMER_PERIOD, self.timer_callback)
@@ -83,8 +72,6 @@ class MainNode(Node):
         ##########################
         ### Publishers ###########
         ##########################
-        self.trigger_publisher = self.create_publisher(Bool, '/trigger', 10)
-        self.trigger_bool_msg = Bool()
         self.combine_pointcloud_bool_publisher = self.create_publisher(Bool, '/combine_pointcloud_bool', 10)
         self.combine_pointcloud_bool_msg = Bool()
 
@@ -92,23 +79,25 @@ class MainNode(Node):
         ### Subscribers ##########
         ##########################
         self.object_list_subscription = self.create_subscription(String, '/object_list', self.object_list_topic_callback, 10)
-        self.point_cloud_subscription = self.create_subscription(PointCloud2, '/transformed_points', self.transformed_points_topic_callback, 10)
         self.PoseWithCovarianceStamped_subscription = self.create_subscription(PoseWithCovarianceStamped, '/localization_pose', self.PoseWithCovarianceStamped_callback, 10)
 
-        self.logger.debug(f"Sleeping for duration '{self.INIT_SLEEP_DURATION}'")
-        time.sleep(self.INIT_SLEEP_DURATION)
-        self.logger.debug("Woke up.")
-        self.trigger_bool_msg.data = True
-        self.logger.debug(f"Loaded trigger_bool_msg with data: '{self.trigger_bool_msg.data}'")
-        self.trigger_publisher.publish(self.trigger_bool_msg)
-        self.logger.debug(f"Published trigger_bool_msg using trigger_bool_publisher.")
-        
         # Publisher for the filtered points as PointCloud2
         self.centroids_subscriber = self.create_subscription(PointCloud2, '/centroids', self.centroids_callback, 10)
+    
+        self.trigger_subscriber = self.create_subscription(Bool, '/trigger', self.trigger_callback, 10)
+        
+        self.logger.fatal("Waiting for trigger.")
+
 
     #############################
     ### Callback Functions ######
     #############################
+
+    def trigger_callback(self, msg):
+        self.logger.debug(f"Received data '{msg.data}'")
+        
+        if msg.data == True:
+            self.trigger = True
 
     def object_list_topic_callback(self, msg):
         self.logger.debug(f"Received data '{msg.data}'")
@@ -127,9 +116,6 @@ class MainNode(Node):
         except (ValueError, SyntaxError) as e:
             self.logger.error(f"Error parsing labels: {e}")
 
-    def transformed_points_topic_callback(self, msg):
-        self.logger.debug(f"Received data '{msg.data}'")
-
     def PoseWithCovarianceStamped_callback(self, msg):
         self.robot_x = msg.pose.pose.position.x
         self.robot_y = msg.pose.pose.position.y
@@ -139,7 +125,7 @@ class MainNode(Node):
     def centroids_callback(self, msg):
         self.centroids = list(pc2.read_points(
             msg, field_names=["x", "y", "z", "label"], skip_nans=True))
-        self.logger.debug(f"Received {len(self.centroids)} labeled centroids: '{self.centroids}'")
+        self.logger.debug(f"Received {len(self.centroids)} labeled centroids: '{self.centroids}' -----------------------------------------------------------------------------------------------------------------------------------------------\n--------------------------------------------------------------------------------------------------------------\n---------------------------------------------------------------------------------------------------------\n--------------------------------------------------------------------------------------------------------------------------")
 
 
     ###########################
@@ -174,47 +160,48 @@ class MainNode(Node):
     ##########################
 
     def timer_callback(self):
-        if None in [self.robot_x, self.robot_y, self.robot_z]:
-            self.logger.error("Robot position is not available yet.")
-            return
-        
-        if self.new_labels_to_visit is not None and self.new_labels_to_visit != self.old_labels_to_visit:
-            reverse_mapping = {v: k for k, v in self.label_mapping.items()}
-            labeled_values = [
-                (*value[:3], reverse_mapping.get(value[3], None)) for value in self.values
-            ]
-
-            self.logger.debug(f"Labeled values: {labeled_values}")
-
-            missing_labels = [label for label in self.new_labels_to_visit if label not in self.label_mapping]
-            if missing_labels:
-                self.logger.error(f"Missing labels in label mapping: {missing_labels}")
+        if self.trigger:
+            if None in [self.robot_x, self.robot_y, self.robot_z]:
+                self.logger.error("Robot position is not available yet.")
                 return
+            
+            if self.new_labels_to_visit is not None and self.new_labels_to_visit != self.old_labels_to_visit:
+                reverse_mapping = {v: k for k, v in self.label_mapping.items()}
+                labeled_values = [
+                    (*value[:3], reverse_mapping.get(value[3], None)) for value in self.centroids
+                ]
 
-            shortest_distance, best_path = self.find_min_distance_path(labeled_values, self.new_labels_to_visit)
+                self.logger.debug(f"Labeled values: {labeled_values}")
 
-            if best_path is None:
-                self.logger.warning("No valid path found.")
-            else:
-                self.logger.debug(f"Minimum total distance: {shortest_distance}")
-                self.logger.debug(f"Labels to visit: {self.new_labels_to_visit}")
-                self.logger.debug(f"Best positions for items: {best_path}")
+                missing_labels = [label for label in self.new_labels_to_visit if label not in self.label_mapping]
+                if missing_labels:
+                    self.logger.error(f"Missing labels in label mapping: {missing_labels}")
+                    return
 
-                self.last_label_positions = best_path[-1]
-                self.goal_position = best_path[-1]
+                shortest_distance, best_path = self.find_min_distance_path(labeled_values, self.new_labels_to_visit)
 
+                if best_path is None:
+                    self.logger.warning("No valid path found.")
+                else:
+                    self.logger.debug(f"Minimum total distance: {shortest_distance}")
+                    self.logger.debug(f"Labels to visit: {self.new_labels_to_visit}")
+                    self.logger.debug(f"Best positions for items: {best_path}")
+
+                    self.last_label_positions = best_path[-1]
+                    self.goal_position = best_path[-1]
+
+                    self.robot_dist_to_goal = self.euclidean_distance([self.robot_x, self.robot_y, self.robot_z], self.last_label_positions)
+                    self.logger.info(f"Robot distance to goal '{self.goal_position}': {self.robot_dist_to_goal}")
+                    
+                    self.robot_and_goal_localized = True
+
+            if self.robot_and_goal_localized:
                 self.robot_dist_to_goal = self.euclidean_distance([self.robot_x, self.robot_y, self.robot_z], self.last_label_positions)
                 self.logger.info(f"Robot distance to goal '{self.goal_position}': {self.robot_dist_to_goal}")
-                
-                self.robot_and_goal_localized = True
-
-        if self.robot_and_goal_localized:
-            self.robot_dist_to_goal = self.euclidean_distance([self.robot_x, self.robot_y, self.robot_z], self.last_label_positions)
-            self.logger.info(f"Robot distance to goal '{self.goal_position}': {self.robot_dist_to_goal}")
-            if self.robot_dist_to_goal is not None and self.robot_dist_to_goal < self.GOAL_DISTANCE_THRESHOLD:
-                self.logger.info(f"Robot within goal position distance threshold: {self.robot_dist_to_goal}/{self.GOAL_DISTANCE_THRESHOLD}")
-                # Simulate manipulation task or set new goal
-                # Reset goal or set to home position if needed
+                if self.robot_dist_to_goal is not None and self.robot_dist_to_goal < self.GOAL_DISTANCE_THRESHOLD:
+                    self.logger.info(f"Robot within goal position distance threshold: {self.robot_dist_to_goal}/{self.GOAL_DISTANCE_THRESHOLD}")
+                    # Simulate manipulation task or set new goal
+                    # Reset goal or set to home position if needed
 
 
 def main():

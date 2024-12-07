@@ -13,14 +13,14 @@
     },
 
     "SemanticPointcloudNode": {
-        "NODE_LOG_LEVEL": "DEBUG"
+        "NODE_LOG_LEVEL": "INFO"
     },
 
     "ImageSegmentationNode": {
-        "NODE_LOG_LEVEL": "DEBUG"
+        "NODE_LOG_LEVEL": "INFO"
     },
 
     "GetCentroidsNode": {
-        "NODE_LOG_LEVEL": "DEBUG"
+        "NODE_LOG_LEVEL": "INFO"
     }
 }

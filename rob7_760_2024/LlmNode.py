@@ -94,6 +94,9 @@ class LlmNode(Node):
         ### End of example ###
         ######################
 
+        self.logger.fatal("Waiting for trigger.")
+
+
     def trigger_callback(self, msg):
         self.logger.debug(f"Received data '{msg.data}'")
         

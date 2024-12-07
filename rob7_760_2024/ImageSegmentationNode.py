@@ -5,13 +5,14 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo, PointCloud2, PointField
 from cv_bridge import CvBridge
 import sensor_msgs_py.point_cloud2 as pc2
+from std_msgs.msg import Bool
 
 import numpy as np
 import cv2
 from ultralytics import YOLO
 import torch
 import struct
-
+import math
 
 class ImageSegmentationNode(Node):
     def __init__(self):
@@ -28,6 +29,8 @@ class ImageSegmentationNode(Node):
         self.logger.error("Hello world!")
         self.logger.fatal("Hello world!")
         
+        self.trigger = False
+
         # Frame counters to process every 10th frame (reduces computational load)
         self.rgb_frame_counter = 0
         self.depth_frame_counter = 0
@@ -51,6 +54,8 @@ class ImageSegmentationNode(Node):
             self.camera_info_callback,  # Callback to process camera intrinsics
             10  # Queue size
         )
+
+        self.trigger_subscriber = self.create_subscription(Bool, '/trigger', self.trigger_callback, 10)
 
         # Publisher for 3D points as a PointCloud2 message
         self.pointcloud_pub = self.create_publisher(
@@ -86,37 +91,48 @@ class ImageSegmentationNode(Node):
             'bed': 14
         }
 
+        self.logger.fatal("Waiting for trigger.")
+
+
+    def trigger_callback(self, msg):
+        self.logger.debug(f"Received data '{msg.data}'")
+        
+        if msg.data == True:
+            self.trigger = True
+
     def rgb_callback(self, msg):
         """Callback to process incoming RGB image messages."""
-        self.rgb_frame_counter += 1  # Increment the frame counter
+        
+        if self.trigger:
+            self.rgb_frame_counter += 1  # Increment the frame counter
 
-        # Skip processing for all but every 10th frame to reduce load
-        if self.rgb_frame_counter % 30 != 0:
-            return
+            # Skip processing for all but every 10th frame to reduce load
+            if self.rgb_frame_counter % 30 != 0:
+                return
 
-        # Periodically reset the frame counter to avoid overflow
-        if self.rgb_frame_counter >= 10000:
-            self.rgb_frame_counter = 0
+            # Periodically reset the frame counter to avoid overflow
+            if self.rgb_frame_counter >= 10000:
+                self.rgb_frame_counter = 0
 
-        # Ensure camera info and depth image are available
-        if not self.camera_info_received or self.depth_image is None:
-            self.logger.warn("CameraInfo or Depth Image not received yet, skipping processing.")
-            return
+            # Ensure camera info and depth image are available
+            if not self.camera_info_received or self.depth_image is None:
+                self.logger.warn("CameraInfo or Depth Image not received yet, skipping processing.")
+                return
 
-        # Convert ROS RGB image message to OpenCV format
-        rgb_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            # Convert ROS RGB image message to OpenCV format
+            rgb_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
-        # Reference the latest depth image
-        depth_image = self.depth_image
+            # Reference the latest depth image
+            depth_image = self.depth_image
 
-        # Perform segmentation to get labeled masks
-        _, labeled_masks = self.segment_image(rgb_image)
+            # Perform segmentation to get labeled masks
+            _, labeled_masks = self.segment_image(rgb_image)
 
-        # Compute 3D positions for detected objects
-        labeled_points_3d = self.find_3d_positions(labeled_masks, depth_image)
+            # Compute 3D positions for detected objects
+            labeled_points_3d = self.find_3d_positions(labeled_masks, depth_image)
 
-        # Publish the 3D points as a PointCloud2 message
-        self.publish_pointcloud(labeled_points_3d, msg.header.stamp)
+            # Publish the 3D points as a PointCloud2 message
+            self.publish_pointcloud(labeled_points_3d, msg.header.stamp)
 
     def depth_callback(self, msg):
         """Callback to process incoming depth image messages."""
@@ -138,7 +154,7 @@ class ImageSegmentationNode(Node):
         # Extract the camera intrinsic matrix from the CameraInfo message
         self.camera_matrix = np.array(msg.k).reshape((3, 3))
         self.camera_info_received = True  # Mark that camera info is received
-        self.logger.info('Camera info received!')
+        self.logger.debug('Camera info received!')
 
     def segment_image(self, image):
         """Perform YOLO-based segmentation on the RGB image."""
@@ -182,7 +198,20 @@ class ImageSegmentationNode(Node):
                         y = (v - cy) * z / fy
                         labeled_points_3d.append((x, y, z, label_id))
 
-        return labeled_points_3d
+        valid_points = []
+        
+        for point in labeled_points_3d:
+            
+            x, y, z, label = point
+            
+            # Check if any of the x, y, z values are NaN or Inf
+            if math.isnan(x) or math.isinf(x) or math.isnan(y) or math.isinf(y) or math.isnan(z) or math.isinf(z):
+                continue  # Skip this point if it's invalid
+            
+            # If valid, add the point to the result list
+            valid_points.append(point)
+
+        return valid_points
 
     def publish_pointcloud(self, labeled_points_3d, timestamp):
         """Publish detected 3D points as a PointCloud2 message."""
@@ -208,7 +237,7 @@ class ImageSegmentationNode(Node):
         pointcloud_msg.height = 1
 
         self.pointcloud_pub.publish(pointcloud_msg)
-        self.logger.info(f"Published PointCloud2 with {len(labeled_points_3d)} points")
+        self.logger.debug(f"Published PointCloud2 with {len(labeled_points_3d)} points")
 
 
 
