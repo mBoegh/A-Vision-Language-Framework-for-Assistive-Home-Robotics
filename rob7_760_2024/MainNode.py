@@ -4,8 +4,9 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String, Bool
 from sensor_msgs.msg import PointCloud2
-from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
 import sensor_msgs_py.point_cloud2 as pc2
+from tf2_ros import transformations
 
 import math
 from itertools import product
@@ -74,6 +75,9 @@ class MainNode(Node):
         ##########################
         self.combine_pointcloud_bool_publisher = self.create_publisher(Bool, '/combine_pointcloud_bool', 10)
         self.combine_pointcloud_bool_msg = Bool()
+
+        self.goal_pose_publisher = self.create_publisher(PoseStamped, '/goal_pose', 10)
+        self.goal_pose_msg = PoseStamped()
 
         ##########################
         ### Subscribers ##########
@@ -155,6 +159,41 @@ class MainNode(Node):
         
         return min_distance, best_combination
 
+    def euler_to_quaternion(self, roll, pitch, yaw):
+        # Convert Euler angles to Quaternion using tf2_ros.transformations
+        q = transformations.quaternion_from_euler(roll, pitch, yaw)
+        return q
+
+    def publish_pose(self):
+        yaw_degrees = math.atan2(self.goal_position[1] - self.robot_y, self.goal_position[0] - self.robot_x)
+        yaw_radians = math.radians(yaw_degrees)
+        
+        quaternion = self.euler_to_quaternion(self, 0, 0, yaw_radians)
+        
+        self.goal_pose_msg.header.frame_id = 'map'
+        self.goal_pose_msg.header.stamp = self.get_clock().now().to_msg()
+        
+        self.goal_pose_msg.pose.position.x = self.goal_position[0]
+        self.goal_pose_msg.pose.position.y = self.goal_position[1]
+        self.goal_pose_msg.pose.position.z = self.goal_position[2]
+
+        self.goal_pose_msg.pose.orientation.x = quaternion[0]
+        self.goal_pose_msg.pose.orientation.y = quaternion[1]
+        self.goal_pose_msg.pose.orientation.z = quaternion[2]
+        self.goal_pose_msg.pose.orientation.w = quaternion[3]
+        
+        self.goal_pose_publisher.publish(self.goal_pose_msg)
+        self.logger.debug(f"""Published goal_pose_msg to /goal_pose topic:\n
+                            x: {self.goal_pose_msg.pose.position.x}\n
+                            y: {self.goal_pose_msg.pose.position.y}\n
+                            z: {self.goal_pose_msg.pose.position.z}\n\n
+                            yaw_degrees: {yaw_degrees}\n
+                            yaw_radians: {yaw_radians}\n\n
+                            x quaternion: {self.goal_pose_msg.pose.orientation.x}\n
+                            y quaternion: {self.goal_pose_msg.pose.orientation.y}\n
+                            z quaternion: {self.goal_pose_msg.pose.orientation.z}\n
+                            w quaternion: {self.goal_pose_msg.pose.orientation.w}""")
+        
     ##########################
     ### Timer Callback #######
     ##########################
@@ -193,15 +232,18 @@ class MainNode(Node):
                     self.robot_dist_to_goal = self.euclidean_distance([self.robot_x, self.robot_y, self.robot_z], self.last_label_positions)
                     self.logger.info(f"Robot distance to goal '{self.goal_position}': {self.robot_dist_to_goal}")
                     
+                    self.publish_pose()
+
                     self.robot_and_goal_localized = True
 
-            if self.robot_and_goal_localized:
-                self.robot_dist_to_goal = self.euclidean_distance([self.robot_x, self.robot_y, self.robot_z], self.last_label_positions)
-                self.logger.info(f"Robot distance to goal '{self.goal_position}': {self.robot_dist_to_goal}")
-                if self.robot_dist_to_goal is not None and self.robot_dist_to_goal < self.GOAL_DISTANCE_THRESHOLD:
-                    self.logger.info(f"Robot within goal position distance threshold: {self.robot_dist_to_goal}/{self.GOAL_DISTANCE_THRESHOLD}")
-                    # Simulate manipulation task or set new goal
-                    # Reset goal or set to home position if needed
+
+            # if self.robot_and_goal_localized:
+            #     self.robot_dist_to_goal = self.euclidean_distance([self.robot_x, self.robot_y, self.robot_z], self.last_label_positions)
+            #     self.logger.info(f"Robot distance to goal '{self.goal_position}': {self.robot_dist_to_goal}")
+            #     if self.robot_dist_to_goal is not None and self.robot_dist_to_goal < self.GOAL_DISTANCE_THRESHOLD:
+            #         self.logger.info(f"Robot within goal position distance threshold: {self.robot_dist_to_goal}/{self.GOAL_DISTANCE_THRESHOLD}")
+            #         # Simulate manipulation task or set new goal
+            #         # Reset goal or set to home position if needed
 
 
 def main():
