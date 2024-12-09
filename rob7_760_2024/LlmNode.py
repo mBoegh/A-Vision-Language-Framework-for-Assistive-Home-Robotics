@@ -48,7 +48,7 @@ class LlmNode(Node):
 
         self.object_list_msg = String()
         
-        self.trigger_subscriber = self.create_subscription(Bool, '/trigger', self.trigger_callback, 10)
+        self.trigger_subscriber = self.create_subscription(Bool, '/trigger2', self.trigger_callback, 10)
 
         self.user_input_subscriber = self.create_subscription(String, '/user_input', self.user_input_callback, 10)
         
@@ -132,6 +132,8 @@ class LlmNode(Node):
             self.object_list_publisher.publish(self.object_list_msg)
             self.logger.debug(f"'object_list_publisher' published message to topic 'object_list'.")
 
+        else:
+            self.logger.fatal(f"Not yet triggered.")
 
 ####################
 ######  MAIN  ######

@@ -55,7 +55,7 @@ class ImageSegmentationNode(Node):
             10  # Queue size
         )
 
-        self.trigger_subscriber = self.create_subscription(Bool, '/trigger', self.trigger_callback, 10)
+        self.trigger_subscriber = self.create_subscription(Bool, '/trigger3', self.trigger_callback, 10)
 
         # Publisher for 3D points as a PointCloud2 message
         self.pointcloud_pub = self.create_publisher(
