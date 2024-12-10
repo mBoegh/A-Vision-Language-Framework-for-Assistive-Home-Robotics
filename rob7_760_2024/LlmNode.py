@@ -98,7 +98,7 @@ class LlmNode(Node):
 
 
     def trigger_callback(self, msg):
-        self.logger.debug(f"Received data '{msg.data}'")
+        self.logger.fatal(f"Received data '{msg.data}'")
         
         if msg.data == True:
             self.trigger = True

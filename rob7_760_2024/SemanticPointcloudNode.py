@@ -6,6 +6,7 @@ from sensor_msgs.msg import PointCloud2, PointField
 from geometry_msgs.msg import PointStamped
 import tf2_ros
 from tf2_geometry_msgs import do_transform_point
+from std_msgs.msg import Bool
 import sensor_msgs_py.point_cloud2 as pc2
 
 import struct
@@ -31,6 +32,8 @@ class SemanticPointcloudNode(Node):
         # Subscribe to the PointCloud2 topic from the SegmentationNode
         self.pointcloud_sub = self.create_subscription(
             PointCloud2, '/object_detected/pointcloud', self.pointcloud_callback, 10)
+        
+        self.robot_reached_goal_subscriber = self.create_subscription(Bool, '/robot_reached_goal', self.robot_reached_goal_callback, 10)
 
         # Publisher for the transformed points as PointCloud2
         self.point_cloud_pub = self.create_publisher(PointCloud2, '/transformed_points', 10)
@@ -44,6 +47,10 @@ class SemanticPointcloudNode(Node):
         # List to store transformed points with labels
         self.transformed_points = []
 
+    def robot_reached_goal_callback(self, msg):
+        self.logger.debug(f"Recieved robot_reached_goal_callback msg.data: '{msg.data}'")
+        self.transformed_points = []
+
     def pointcloud_callback(self, msg):
         """
         Callback for the /object_detected/pointcloud topic.
@@ -51,7 +58,7 @@ class SemanticPointcloudNode(Node):
         """
         # Get the timestamp from the PointCloud2 message
         msg_timestamp = msg.header.stamp
-        
+
         # Wait for the transform to be available using the PointCloud2's timestamp
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 

@@ -10,9 +10,7 @@ import sensor_msgs_py.point_cloud2 as pc2
 import numpy  as np
 import math
 from itertools import product
-import time
 import ast
-import os
 
 class MainNode(Node):
     """
@@ -59,6 +57,7 @@ class MainNode(Node):
 
         self.already_executed_flag = False
         self.goal_reached_flag = False
+        self.orientated_correctly_flag = False
 
         self.robot_and_goal_localized = False
         self.old_labels_to_visit = None
@@ -104,6 +103,10 @@ class MainNode(Node):
 
         self.goal_pose_publisher = self.create_publisher(PoseStamped, '/goal_pose', 10)
         self.goal_pose_msg = PoseStamped()
+        
+        self.robot_reached_goal_publisher = self.create_publisher(Bool, '/robot_reached_goal', 10)
+        self.robot_reached_goal_msg = Bool()
+        self.robot_reached_goal_msg.data = True
 
         ##########################
         ### Subscribers ##########
@@ -115,9 +118,7 @@ class MainNode(Node):
         self.centroids_subscriber = self.create_subscription(PointCloud2, '/centroids', self.centroids_callback, 10)
     
         self.trigger_subscriber = self.create_subscription(Bool, '/trigger1', self.trigger_callback, 10)
-        
-        self.goal_reached_subscriber = self.create_subscription(Bool, '/goal_reached', self.goal_reached_callback, 10)
-        
+                
         self.logger.fatal("Waiting for trigger.")
 
 
@@ -126,7 +127,7 @@ class MainNode(Node):
     #############################
 
     def trigger_callback(self, msg):
-        self.logger.debug(f"Received data '{msg.data}'")
+        self.logger.fatal(f"Received data '{msg.data}'")
         
         if msg.data == True:
             self.trigger = True
@@ -148,6 +149,7 @@ class MainNode(Node):
 
             if not self.old_labels_to_visit == self.new_labels_to_visit and self.already_executed_flag:
                 self.already_executed_flag = False
+                self.orientated_correctly_flag = False
             
         except (ValueError, SyntaxError) as e:
             self.logger.error(f"Error parsing labels: {e}")
@@ -165,10 +167,6 @@ class MainNode(Node):
 
         # Log the received centroids
         self.logger.debug(f"Received {len(self.centroids)} labeled centroids: '{self.centroids}'")
-        
-    def goal_reached_callback(self, msg):
-        self.goal_reached_flag = msg.data
-        self.logger.fatal(f"goal_reached_flag: '{self.goal_reached_flag}'")
 
 
     ###########################
@@ -179,14 +177,12 @@ class MainNode(Node):
         return [item[:3] for item in items if item[3] == label]
 
     def euclidean_distance(self, coords1, coords2):
-        self.logger.debug("4")
+
         return math.sqrt(sum((c1 - c2) ** 2 for c1, c2 in zip(coords1, coords2)))
 
     def find_min_distance_path(self, centroids, objects_to_visit):
         grouped_positions = [self.filter_items_by_label(centroids, object) for object in objects_to_visit]
-        
-        self.logger.debug("1")
-        
+                
         min_distance = float('inf')
         best_combination = None
         
@@ -199,13 +195,10 @@ class MainNode(Node):
                 min_distance = total_distance
                 best_combination = combination
 
-        self.logger.debug("2")
-
         return min_distance, best_combination
 
     def euler_to_quaternion(self, roll, pitch, yaw):
 
-        self.logger.debug("5")
         # Compute half angles
         cy = math.cos(yaw * 0.5)
         sy = math.sin(yaw * 0.5)
@@ -213,7 +206,7 @@ class MainNode(Node):
         sr = math.sin(roll * 0.5)
         cp = math.cos(pitch * 0.5)
         sp = math.sin(pitch * 0.5)
-        self.logger.debug("6")
+
         # Calculate quaternion
         w = cr * cp * cy + sr * sp * sy
         x = sr * cp * cy - cr * sp * sy
@@ -229,19 +222,19 @@ class MainNode(Node):
         self.logger.debug(f"yaw_radians: '{yaw_radians}'")
         
         quaternion = self.euler_to_quaternion(0, 0, yaw_radians)
-        self.logger.debug("8")
+
         self.goal_pose_msg.header.frame_id = 'map'
         self.goal_pose_msg.header.stamp = self.get_clock().now().to_msg()
-        self.logger.debug("9")
+
         self.goal_pose_msg.pose.position.x = float(self.goal_position[0])
         self.goal_pose_msg.pose.position.y = float(self.goal_position[1])
         self.goal_pose_msg.pose.position.z = float(self.goal_position[2])
-        self.logger.debug("10")
+
         self.goal_pose_msg.pose.orientation.x = quaternion[0]
         self.goal_pose_msg.pose.orientation.y = quaternion[1]
         self.goal_pose_msg.pose.orientation.z = quaternion[2]
         self.goal_pose_msg.pose.orientation.w = quaternion[3]
-        self.logger.debug("11")
+
         self.goal_pose_publisher.publish(self.goal_pose_msg)
         self.logger.debug(f"""Published goal_pose_msg to /goal_pose topic:\n
                             x: {self.goal_pose_msg.pose.position.x}\n
@@ -336,8 +329,6 @@ class MainNode(Node):
 
                 shortest_distance, best_path = self.find_min_distance_path(self.centroid_list, self.new_labels_to_visit)
 
-                self.logger.debug("3")
-
                 if best_path is None:
                     self.logger.warning("No valid path found.")
                 else:
@@ -351,14 +342,23 @@ class MainNode(Node):
                     self.robot_dist_to_goal = self.euclidean_distance([self.robot_x, self.robot_y, self.robot_z], self.last_label_positions)
                     self.logger.info(f"Robot distance to goal '{self.goal_position}': {self.robot_dist_to_goal}")
                     
-                    
                     self.publish_pose()            
 
                 self.already_executed_flag = True
                 self.logger.debug(f"already_executed_flag: '{self.already_executed_flag}'")
+            
+            if None not in [self.robot_x, self.robot_y, self.robot_z, self.last_label_positions]:
+                dist_to_goal = self.euclidean_distance([self.robot_x, self.robot_y, self.robot_z], self.last_label_positions)
+
+                if dist_to_goal < self.GOAL_DISTANCE_THRESHOLD and not self.orientated_correctly_flag:
+                
+                    self.robot_reached_goal_publisher.publish(self.robot_reached_goal_msg)
                     
-            if self.goal_reached_flag:
-                self.publish_pose()
+                    self.logger.debug(f"Published robot_reached_goal_msg: '{self.robot_reached_goal_msg.data}'")
+                    
+                    self.publish_pose()
+                    
+                    self.orientated_correctly_flag = True
 
 
 def main():

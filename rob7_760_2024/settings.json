@@ -1,7 +1,7 @@
 {
     "MainNode":{
         "TIMER_PERIOD": 0.01,
-        "GOAL_DISTANCE_THRESHOLD": 100,
+        "GOAL_DISTANCE_THRESHOLD": 0.7,
         "INIT_SLEEP_DURATION": 1,
         "FILENAME" : "~/tiago_public_ws/centroids.bin",
         "NODE_LOG_LEVEL": "DEBUG"
