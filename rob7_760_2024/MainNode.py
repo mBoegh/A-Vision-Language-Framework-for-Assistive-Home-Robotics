@@ -58,6 +58,7 @@ class MainNode(Node):
         }
 
         self.already_executed_flag = False
+        self.goal_reached_flag = False
 
         self.robot_and_goal_localized = False
         self.old_labels_to_visit = None
@@ -115,6 +116,8 @@ class MainNode(Node):
     
         self.trigger_subscriber = self.create_subscription(Bool, '/trigger1', self.trigger_callback, 10)
         
+        self.goal_reached_subscriber = self.create_subscription(Bool, '/goal_reached', self.goal_reached_callback, 10)
+        
         self.logger.fatal("Waiting for trigger.")
 
 
@@ -162,6 +165,10 @@ class MainNode(Node):
 
         # Log the received centroids
         self.logger.debug(f"Received {len(self.centroids)} labeled centroids: '{self.centroids}'")
+        
+    def goal_reached_callback(self, msg):
+        self.goal_reached_flag = msg.data
+        self.logger.fatal(f"goal_reached_flag: '{self.goal_reached_flag}'")
 
 
     ###########################
@@ -345,19 +352,13 @@ class MainNode(Node):
                     self.logger.info(f"Robot distance to goal '{self.goal_position}': {self.robot_dist_to_goal}")
                     
                     
-                    self.publish_pose()
-
-                    self.robot_and_goal_localized = True
+                    self.publish_pose()            
 
                 self.already_executed_flag = True
+                self.logger.debug(f"already_executed_flag: '{self.already_executed_flag}'")
                     
-            # if self.robot_and_goal_localized:
-            #     self.robot_dist_to_goal = self.euclidean_distance([self.robot_x, self.robot_y, self.robot_z], self.last_label_positions)
-            #     self.logger.info(f"Robot distance to goal '{self.goal_position}': {self.robot_dist_to_goal}")
-            #     if self.robot_dist_to_goal is not None and self.robot_dist_to_goal < self.GOAL_DISTANCE_THRESHOLD:
-            #         self.logger.info(f"Robot within goal position distance threshold: {self.robot_dist_to_goal}/{self.GOAL_DISTANCE_THRESHOLD}")
-            #         # Simulate manipulation task or set new goal
-            #         # Reset goal or set to home position if needed
+            if self.goal_reached_flag:
+                self.publish_pose()
 
 
 def main():
