@@ -17,13 +17,12 @@ class MainNode(Node):
     This is the Main node of the ROS2 network.
     """
 
-    def __init__(self, timer_period, goal_distance_threshold, init_sleep_duration, filename):
+    def __init__(self, timer_period, goal_distance_threshold, filename, centroids_filtering_distance):
         # Initializing parsed variables.
         self.TIMER_PERIOD = timer_period
         self.GOAL_DISTANCE_THRESHOLD = goal_distance_threshold
-        self.INIT_SLEEP_DURATION = init_sleep_duration
         self.FILENAME = filename
-        
+        self.CENTROIDS_FILTERING_DISTANCE = centroids_filtering_distance
 
         # Initializing the 'Node' class, from which this class is inheriting, with argument 'node_name'.
         Node.__init__(self, 'main_node')
@@ -58,13 +57,18 @@ class MainNode(Node):
         self.already_executed_flag = False
         self.goal_reached_flag = False
         self.orientated_correctly_flag = False
-
-        self.robot_and_goal_localized = False
+        
+        self.centroids_new = None
+        self.centroids = np.load(self.FILENAME)
+        
+        self.dist_to_goal = None
         self.old_labels_to_visit = None
         self.new_labels_to_visit = None
         self.goal_position = None
         self.robot_dist_to_goal = None
         self.last_label_positions = None  # Initialize last_label_positions
+
+        self.centroids = np.load(self.FILENAME)
 
         # Define a dtype dynamically based on the field names
         self.dtype = np.dtype([
@@ -80,7 +84,8 @@ class MainNode(Node):
         self.robot_z = 0.0
 
         # Initializing a timer that periodically calls the timer_callback function.
-        self.timer = self.create_timer(self.TIMER_PERIOD, self.timer_callback)
+        self.main_timer = self.create_timer(self.TIMER_PERIOD, self.main_timer_callback)
+        self.compute_dist_to_goal_timer = self.create_timer(2, self.compute_dist_to_goal_timer_callback)
         
         
         #initialise centroids and reverse mapping
@@ -147,9 +152,10 @@ class MainNode(Node):
                 self.new_labels_to_visit = [label.strip() for label in raw_data.split(',')]
             self.logger.debug(f"Parsed labels: {self.new_labels_to_visit}")
 
-            if not self.old_labels_to_visit == self.new_labels_to_visit and self.already_executed_flag:
+            if not self.old_labels_to_visit == self.new_labels_to_visit and self.already_executed_flag and self.orientated_correctly_flag:
                 self.already_executed_flag = False
                 self.orientated_correctly_flag = False
+                self.logger.fatal("va")
             
         except (ValueError, SyntaxError) as e:
             self.logger.error(f"Error parsing labels: {e}")
@@ -158,11 +164,11 @@ class MainNode(Node):
         self.robot_x = msg.pose.pose.position.x
         self.robot_y = msg.pose.pose.position.y
         self.robot_z = msg.pose.pose.position.z
-        self.logger.debug(f'Robot position - x: {self.robot_x}, y: {self.robot_y}, z: {self.robot_z}')
+        #self.logger.debug(f'Robot position - x: {self.robot_x}, y: {self.robot_y}, z: {self.robot_z}')
 
     def centroids_callback(self, msg):
         # Read the points from the PointCloud2 message and convert each point from a tuple to a list
-        self.centroids = [list(value) for value in pc2.read_points(
+        self.centroids_new = [list(value) for value in pc2.read_points(
             msg, field_names=["x", "y", "z", "label"], skip_nans=True)]
 
         # Log the received centroids
@@ -177,9 +183,10 @@ class MainNode(Node):
         return [item[:3] for item in items if item[3] == label]
 
     def euclidean_distance(self, coords1, coords2):
-
-        return math.sqrt(sum((c1 - c2) ** 2 for c1, c2 in zip(coords1, coords2)))
-
+        dist = math.sqrt(sum((c1 - c2) ** 2 for c1, c2 in zip(coords1, coords2)))
+        #self.logger.debug(f"Distance to goal: '{dist}'")
+        return dist
+    
     def find_min_distance_path(self, centroids, objects_to_visit):
         grouped_positions = [self.filter_items_by_label(centroids, object) for object in objects_to_visit]
                 
@@ -268,15 +275,18 @@ class MainNode(Node):
     def update_centroids(self, distance_threshold=0.1):
 
         # Create a copy of the initialized centroids to avoid modifying the list during iteration
-        updated_centroids = self.centroids_initialized.copy()
-
-        for new_centroid in self.centroids:
+        updated_centroids = self.centroids.copy()
+        self.logger.fatal("updating centroids")
+        for new_centroid in self.centroids_new:
             # Check if this centroid is near any of the initialized centroids
             found_near = False
 
             for i, init_centroid in enumerate(updated_centroids):
+                
+                x_nc, y_nc, z_nc = new_centroid[0:3]
+                x_ic, y_ic, z_ic = init_centroid[0:3]
                 # Calculate distance only based on (x, y, z) coordinates
-                distance = self.calculate_distance(new_centroid, init_centroid)
+                distance = self.euclidean_distance([x_nc, y_nc, z_nc], [x_ic, y_ic, z_ic])
                 if distance <= distance_threshold:
                     # If the new centroid is near the initialized one, substitute it
                     updated_centroids[i] = new_centroid
@@ -285,30 +295,22 @@ class MainNode(Node):
 
             if not found_near:
                 # If no near centroid was found, add the new centroid to the list
-                updated_centroids.append(new_centroid)
+                updated_centroids = np.append(updated_centroids, new_centroid)
 
         # Update the initialized centroids with the new list
-        self.centroids_initialized = updated_centroids
-
-        # Log the results
-        self.logger.debug(f"Updated centroids: {len(self.centroids_initialized)}")
-
-    def calculate_distance(self, centroid1, centroid2):
-        """
-        Calculate Euclidean distance between two centroids (x, y, z).
-        """
-        x1, y1, z1, _ = centroid1
-        x2, y2, z2, _ = centroid2
-        
-        # Euclidean distance formula (ignoring the label)
-        return np.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
+        self.centroids = updated_centroids
+        self.logger.fatal(f"updating centroids fin: {self.centroids}")
 
         
     ##########################
     ### Timer Callback #######
     ##########################
 
-    def timer_callback(self):
+    def compute_dist_to_goal_timer_callback(self):
+        if None not in [self.robot_x, self.robot_y, self.robot_z, self.last_label_positions]:
+            self.dist_to_goal = self.euclidean_distance([self.robot_x, self.robot_y, self.robot_z], self.last_label_positions)        
+
+    def main_timer_callback(self):
         if self.trigger:
             if None in [self.robot_x, self.robot_y, self.robot_z]:
                 self.logger.error("Robot position is not available yet.")
@@ -347,19 +349,26 @@ class MainNode(Node):
                 self.already_executed_flag = True
                 self.logger.debug(f"already_executed_flag: '{self.already_executed_flag}'")
             
-            if None not in [self.robot_x, self.robot_y, self.robot_z, self.last_label_positions]:
-                dist_to_goal = self.euclidean_distance([self.robot_x, self.robot_y, self.robot_z], self.last_label_positions)
 
-                if dist_to_goal < self.GOAL_DISTANCE_THRESHOLD and not self.orientated_correctly_flag:
+            if not self.dist_to_goal == None and self.dist_to_goal < self.GOAL_DISTANCE_THRESHOLD and not self.orientated_correctly_flag:
+            
+                self.logger.fatal("Robot reached goal.")
+            
+                self.robot_reached_goal_publisher.publish(self.robot_reached_goal_msg)
                 
-                    self.robot_reached_goal_publisher.publish(self.robot_reached_goal_msg)
-                    
-                    self.logger.debug(f"Published robot_reached_goal_msg: '{self.robot_reached_goal_msg.data}'")
-                    
-                    self.publish_pose()
-                    
-                    self.orientated_correctly_flag = True
+                self.logger.debug(f"Published robot_reached_goal_msg: '{self.robot_reached_goal_msg.data}'")
+                
+                self.publish_pose()
+                
+                self.orientated_correctly_flag = True
+            
+                #update 
+                self.update_centroids(self.CENTROIDS_FILTERING_DISTANCE)
 
+                np.save(self.FILENAME, self.centroids)
+                
+                
+                
 
 def main():
     # Path for 'settings.json' file
@@ -371,9 +380,9 @@ def main():
     # Get settings from 'settings.json' file
     TIMER_PERIOD = json_handler.get_subkey_value("MainNode", "TIMER_PERIOD")
     GOAL_DISTANCE_THRESHOLD = json_handler.get_subkey_value("MainNode", "GOAL_DISTANCE_THRESHOLD")
-    INIT_SLEEP_DURATION = json_handler.get_subkey_value("MainNode", "INIT_SLEEP_DURATION")
     NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("MainNode", "NODE_LOG_LEVEL")
     FILENAME = json_handler.get_subkey_value("MainNode", "FILENAME")
+    CENTROIDS_FILTERING_DISTANCE = json_handler.get_subkey_value("MainNode", "CENTROIDS_FILTERING_DISTANCE")
 
     # Initialize the rclpy library.
     rclpy.init()
@@ -391,7 +400,7 @@ def main():
     rclpy.logging.set_logger_level("main_node", eval(NODE_LOG_LEVEL))
     
     # Instance the Main class
-    main_node = MainNode(TIMER_PERIOD, GOAL_DISTANCE_THRESHOLD, INIT_SLEEP_DURATION, FILENAME)
+    main_node = MainNode(TIMER_PERIOD, GOAL_DISTANCE_THRESHOLD, FILENAME, CENTROIDS_FILTERING_DISTANCE)
     
     # Begin looping the node
         # Begin looping the node
@@ -399,6 +408,11 @@ def main():
         rclpy.spin(main_node)
     except KeyboardInterrupt:
         main_node.logger.info("Shutting down GetCentroidsNode.")
+       
+        
+        
+        main_node.logger.info(f"Saving centroids to '{FILENAME}'.")
+
        
         #does it pass automaticaly the self?
         #main_node.update_centroids() 

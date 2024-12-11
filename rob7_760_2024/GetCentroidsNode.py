@@ -11,9 +11,14 @@ from sklearn.cluster import DBSCAN
 
 
 class GetCentroidsNode(Node):
-    def __init__(self):
+    def __init__(self, distance_threshold, eps, min_samples, merge_threshold, obstacle_threshold):
         # Initializing parsed variables.
-
+        self.DISTANCE_THRESHOLD = distance_threshold
+        self.EPS = eps
+        self.MIN_SAMPLES = min_samples
+        self.MERGE_THRESHOLD = merge_threshold
+        self.OBSTACLE_THRESHOLD = obstacle_threshold
+        
         # Initializing the 'Node' class, from which this class is inheriting, with argument 'node_name'.
         Node.__init__(self, 'get_centroids_node')
         self.logger = self.get_logger()
@@ -79,15 +84,12 @@ class GetCentroidsNode(Node):
         # Convert obstacle points to numpy array for efficient distance computation
         obstacle_array = np.array([[p[0], p[1], p[2]] for p in self.cloud_obstacles])
 
-        # Distance threshold for filtering
-        distance_threshold = 0.1  # in meters
-
         # Filter transformed points based on proximity to obstacles
         filtered_points = []
         for point in self.transformed_points:
             x, y, z, label_id = point
             distances = np.linalg.norm(obstacle_array - np.array([x, y, z]), axis=1)
-            if np.any(distances < distance_threshold):
+            if np.any(distances < self.DISTANCE_THRESHOLD):
                 filtered_points.append((x, y, z, label_id))
 
         self.logger.debug(f"Filtered down to {len(filtered_points)} points near obstacles.")
@@ -100,7 +102,7 @@ class GetCentroidsNode(Node):
         centroids = self.compute_centroids(filtered_points)
 
         # Merge centroids if they are too close
-        centroids = self.merge_close_centroids(centroids)
+        centroids = self.merge_close_centroids(centroids, merge_threshold=self.MERGE_THRESHOLD, obstacle_threshold=self.OBSTACLE_THRESHOLD)
 
         # Publish the centroids
         self.publish_centroids(centroids)
@@ -123,16 +125,12 @@ class GetCentroidsNode(Node):
 
         centroids = []
 
-        # DBSCAN parameters
-        eps = 0.1  # Maximum distance for clustering
-        min_samples = 15  # Minimum points to form a cluster
-
         # Perform DBSCAN clustering and compute centroids for each label group
         for label_id, points in clusters_by_label.items():
             points_array = np.array(points)
 
             # Apply DBSCAN clustering
-            dbscan = DBSCAN(eps=eps, min_samples=min_samples)
+            dbscan = DBSCAN(eps=self.EPS, min_samples=self.MIN_SAMPLES)
             labels = dbscan.fit_predict(points_array)
 
             # Organize points into subclusters
@@ -242,6 +240,11 @@ def main():
     
     # Get settings from 'settings.json' file
     NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("GetCentroidsNode", "NODE_LOG_LEVEL")
+    DISTANCE_THRESHOLD = json_handler.get_subkey_value("GetCentroidsNode", "DISTANCE_THRESHOLD")
+    EPS = json_handler.get_subkey_value("GetCentroidsNode", "EPS")
+    MIN_SAMPLES = json_handler.get_subkey_value("GetCentroidsNode", "MIN_SAMPLES")
+    MERGE_THRESHOLD = json_handler.get_subkey_value("GetCentroidsNode", "MERGE_THRESHOLD")
+    OBSTACLE_THRESHOLD = json_handler.get_subkey_value("GetCentroidsNode", "OBSTACLE_THRESHOLD")
 
     # Initialize the rclpy library.
     rclpy.init()
@@ -259,13 +262,14 @@ def main():
     rclpy.logging.set_logger_level("main", eval(NODE_LOG_LEVEL))
     
     # Instance the Main class
-    get_centroids_node = GetCentroidsNode()
+    get_centroids_node = GetCentroidsNode(DISTANCE_THRESHOLD, EPS, MIN_SAMPLES, MERGE_THRESHOLD, OBSTACLE_THRESHOLD)
     
     # Begin looping the node
     try:
         rclpy.spin(get_centroids_node)
     except KeyboardInterrupt:
         get_centroids_node.logger.info("Shutting down GetCentroidsNode.")
+
     finally:
         get_centroids_node.destroy_node()
         rclpy.shutdown()

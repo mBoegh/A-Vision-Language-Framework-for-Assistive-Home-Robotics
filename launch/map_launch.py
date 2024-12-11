@@ -25,13 +25,9 @@ def generate_launch_description():
         'Mem/IncrementalMemory': 'true',
         'RGBD/OptimizeFromGraphEnd': 'true',
         'Grid/MaxObstacleHeight':'1.5',
-        'Rtabmap/LoopClosureDetection':'true',
-        'Mem/NotLinkedNodesKept': 'false',  # Automatically remove unlinked nodes
-        'Mem/STMSize': '10',  # Short-term memory size
-        'RGBD/MaxNodesRemoval': 2,  # Allow removal of up to 1 node at a time
         
         # use this after initialization
-        'Rtabmap/Localization': True,
+        'Rtabmap/Localization': True
 
 
         
@@ -45,7 +41,7 @@ def generate_launch_description():
         ('rgb/camera_info', '/head_front_camera/rgb/camera_info'),
 
         # imu to improve odometry
-        ('imu', '/imu_sensor_broadcaster/imu'),
+        ('imu', '/imu_sensor_broadcaster/imu')
         
         ]
 

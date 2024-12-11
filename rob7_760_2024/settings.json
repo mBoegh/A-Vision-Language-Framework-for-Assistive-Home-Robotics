@@ -1,27 +1,37 @@
 {
     "MainNode":{
         "TIMER_PERIOD": 0.01,
-        "GOAL_DISTANCE_THRESHOLD": 0.7,
-        "INIT_SLEEP_DURATION": 1,
-        "FILENAME" : "~/tiago_public_ws/centroids.bin",
+        "GOAL_DISTANCE_THRESHOLD": 0.8,        
+        "CENTROIDS_FILTERING_DISTANCE": 0.2,   
+        "FILENAME" : "/home/mboghl21studentaaudk/tiago_public_ws/centroids.npy",
         "NODE_LOG_LEVEL": "DEBUG"
     },
 
     "LlmNode": {
         "LLM_MODEL": "gpt-4o-mini",
-        "LLM_CONTENT": "You are my semantic processing assistant. When you recieve a string, you should parse it down to the locations included. Like 'Go to the bed behind the cabin' then you should return ['bed', 'cabin'], 'Go get my medicine on the counter behind the sofa' then you should return ['sofa', 'counter', 'medicine']. If a plural is present, return the item the appropriate amount of times. Like 'Go get the remote by the chairs' should return ['chair', 'chair', 'remote'].",
+        "LLM_CONTENT": "You are my semantic processing assistant. When you recieve a string, you should parse it down to the locations included. Like 'Go to the bed behind the cabin' then you should return ['bed', 'cabin'], 'Go get my medicine on the counter behind the sofa' then you should return ['sofa', 'counter', 'medicine']. If a plural is present, return the item the appropriate amount of times. Like 'Go get the remote by the chairs' should return ['chair', 'chair', 'remote']. These are all the labels that you can use: 'person', 'couch', 'chair', 'tv', 'cup', 'sink', 'spoon', 'vase', 'refrigerator', 'dining table', 'sports ball', 'cell phone', 'bench', 'bed'",
         "NODE_LOG_LEVEL": "DEBUG"
     },
 
     "SemanticPointcloudNode": {
+        "SAMPLING_PERCENTAGE": 0.2,   
+        "TIME_DIFF": 0.05,            
+        "DISTANCE_THRESHOLD": 0.03,  
         "NODE_LOG_LEVEL": "INFO"
     },
 
     "ImageSegmentationNode": {
-        "NODE_LOG_LEVEL": "INFO"
+        "CONFIDENCE": 0.65,           
+        "FRAME_SKIPPED": 10,                  
+        "NODE_LOG_LEVEL": "WARN"
     },
 
     "GetCentroidsNode": {
+        "DISTANCE_THRESHOLD": 0.05,   
+        "EPS": 0.1,                           
+        "MIN_SAMPLES": 20,          
+        "MERGE_THRESHOLD": 0.2,       
+        "OBSTACLE_THRESHOLD": 0.05,   
         "NODE_LOG_LEVEL": "INFO"
     }
 }

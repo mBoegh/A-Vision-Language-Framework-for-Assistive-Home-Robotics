@@ -15,9 +15,13 @@ import struct
 import math
 
 class ImageSegmentationNode(Node):
-    def __init__(self):
-        # Initializing parsed variables.
+    def __init__(self,  confidence, frame_skipped):
 
+        
+        self.CONFIDENCE = confidence
+        self.FRAME_SKIPPED = frame_skipped
+        
+        
         # Initializing the 'Node' class, from which this class is inheriting, with argument 'node_name'.
         Node.__init__(self, 'image_segmentation_node')
         self.logger = self.get_logger()
@@ -68,7 +72,7 @@ class ImageSegmentationNode(Node):
         self.bridge = CvBridge()  # For converting ROS Image messages to OpenCV
         self.device = "cuda" if torch.cuda.is_available() else "cpu"  # Select computation device
         self.logger.info(f"Using device: {self.device}")  # Log the chosen device
-        self.model = YOLO("yolo11x-seg.pt")  # Load the YOLO model for segmentation
+        self.model = YOLO("yolo11x-seg.pt", verbose=False)  # Load the YOLO model for segmentation
         self.camera_matrix = None  # Placeholder for camera intrinsic matrix
         self.depth_image = None  # Placeholder for the latest depth image
         self.camera_info_received = False  # Flag to ensure camera info is received
@@ -107,7 +111,7 @@ class ImageSegmentationNode(Node):
             self.rgb_frame_counter += 1  # Increment the frame counter
 
             # Skip processing for all but every 10th frame to reduce load
-            if self.rgb_frame_counter % 30 != 0:
+            if self.rgb_frame_counter % self.FRAME_SKIPPED != 0:
                 return
 
             # Periodically reset the frame counter to avoid overflow
@@ -139,7 +143,7 @@ class ImageSegmentationNode(Node):
         self.depth_frame_counter += 1  # Increment the frame counter
 
         # Skip processing for all but every 10th frame to reduce load
-        if self.depth_frame_counter % 30 != 0:
+        if self.depth_frame_counter % self.FRAME_SKIPPED  != 0:
             return
 
         # Periodically reset the frame counter to avoid overflow
@@ -172,7 +176,7 @@ class ImageSegmentationNode(Node):
                 label = self.model.names[label_index]
 
                 # Include only objects with high confidence and relevant labels
-                if confidence > 0.65 and label in self.label_mapping:
+                if confidence > self.CONFIDENCE and label in self.label_mapping:
                     mask_resized = mask.cpu().numpy().astype(np.uint8)
                     labeled_masks[label] = mask_resized
 
@@ -237,7 +241,7 @@ class ImageSegmentationNode(Node):
         pointcloud_msg.height = 1
 
         self.pointcloud_pub.publish(pointcloud_msg)
-        self.logger.debug(f"Published PointCloud2 with {len(labeled_points_3d)} points")
+        #self.logger.debug(f"Published PointCloud2 with {len(labeled_points_3d)} points")
 
 
 
@@ -251,7 +255,9 @@ def main():
     
     # Get settings from 'settings.json' file
     NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("ImageSegmentationNode", "NODE_LOG_LEVEL")
-
+    CONFIDENCE = json_handler.get_subkey_value("ImageSegmentationNode", "CONFIDENCE")
+    FRAME_SKIPPED = json_handler.get_subkey_value("ImageSegmentationNode", "FRAME_SKIPPED")
+    
     # Initialize the rclpy library.
     rclpy.init()
     
@@ -268,7 +274,7 @@ def main():
     rclpy.logging.set_logger_level("image_segmentation_node", eval(NODE_LOG_LEVEL))
     
     # Instance the Main class
-    image_segmentation_node = ImageSegmentationNode()
+    image_segmentation_node = ImageSegmentationNode(CONFIDENCE, FRAME_SKIPPED)
     
     # Begin looping the node
     rclpy.spin(image_segmentation_node)

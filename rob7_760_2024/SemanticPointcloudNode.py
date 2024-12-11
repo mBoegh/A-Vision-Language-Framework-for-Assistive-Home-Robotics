@@ -14,9 +14,11 @@ import math
 import random
 
 class SemanticPointcloudNode(Node):
-    def __init__(self):
+    def __init__(self, sampling_percentage, time_diff, distance_threshold):
         # Initializing parsed variables.
-
+        self.SAMPLING_PERCENTAGE = sampling_percentage
+        self.TIME_DIFF = time_diff
+        self.DISTANCE_THRESHOLD = distance_threshold
 
         # Initializing the 'Node' class, from which this class is inheriting, with argument 'node_name'.
         Node.__init__(self, 'semantic_pointcloud_node')
@@ -41,9 +43,6 @@ class SemanticPointcloudNode(Node):
         # Create a TF buffer and listener to get the transforms
         self.tf_buffer = tf2_ros.Buffer(rclpy.duration.Duration(seconds=100))
 
-        #sampling percentage to reduce the incoming pointcloud
-        self.sampling_percentage = 0.1
-
         # List to store transformed points with labels
         self.transformed_points = []
 
@@ -63,7 +62,7 @@ class SemanticPointcloudNode(Node):
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
         try:
-            self.logger.debug(f"tf_buffer: '{self.tf_buffer}'")
+            #self.logger.debug(f"tf_buffer: '{self.tf_buffer}'")
             transform = self.tf_buffer.lookup_transform(
                 'map',  # Target frame
                 msg.header.frame_id,  # Source frame
@@ -84,14 +83,14 @@ class SemanticPointcloudNode(Node):
                 
             time_diff = time_diff_sec + time_diff_nsec / 1e9  # Time difference in seconds
 
-            self.logger.debug(f"Using transform (time diff: {time_diff:.3f} seconds)")
+            #self.logger.debug(f"Using transform (time diff: {time_diff:.3f} seconds)")
 
-            if time_diff > 0.05:  # If the time difference is greater than 0.1 seconds, skip processing
-                self.logger.warn(f"Transform is too old ({time_diff:.3f} seconds), skipping point cloud processing.")
+            if time_diff > self.TIME_DIFF:  # If the time difference is greater than 0.1 seconds, skip processing
+                #self.logger.warn(f"Transform is too old ({time_diff:.3f} seconds), skipping point cloud processing.")
                 return
 
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
-            self.logger.warn(f"Transform lookup failed: {e}. Skipping point cloud processing.")
+            #self.logger.warn(f"Transform lookup failed: {e}. Skipping point cloud processing.")
             return
         
         # Extract points from the PointCloud2 message
@@ -203,12 +202,12 @@ class SemanticPointcloudNode(Node):
 
     def reduce_points(self, points):
         """
-        Reduces the number of points by keeping only those that are not
+        Reduces the number of points by keeping only those that are nage = 0.1ot
         within a specified distance of another point.
         """
      
         num_points = len(points)
-        num_points_to_keep = int(num_points * self.sampling_percentage)
+        num_points_to_keep = int(num_points * self.SAMPLING_PERCENTAGE)
         
         sampled_points = random.sample(points, num_points_to_keep)
 
@@ -219,8 +218,6 @@ class SemanticPointcloudNode(Node):
         Check if the point is too close to any other point in the output point cloud.
         """
 
-        distance_threshold = 0.01  # Minimum distance between points
-
         for f_point in self.transformed_points:
 
             dist = math.sqrt(
@@ -228,7 +225,7 @@ class SemanticPointcloudNode(Node):
                 (point['y'] - f_point['y']) ** 2 +
                 (point['z'] - f_point['z']) ** 2  # Ensure valid z values
             )
-            if dist < distance_threshold:
+            if dist < self.DISTANCE_THRESHOLD:
                 return True  # The point is too close to an existing point
 
         return False
@@ -242,6 +239,9 @@ def main():
     
     # Get settings from 'settings.json' file
     NODE_LOG_LEVEL = "rclpy.logging.LoggingSeverity." + json_handler.get_subkey_value("SemanticPointcloudNode", "NODE_LOG_LEVEL")
+    SAMPLING_PERCENTAGE = json_handler.get_subkey_value("SemanticPointcloudNode", "SAMPLING_PERCENTAGE")
+    TIME_DIFF = json_handler.get_subkey_value("SemanticPointcloudNode", "TIME_DIFF")
+    DISTANCE_THRESHOLD = json_handler.get_subkey_value("SemanticPointcloudNode", "DISTANCE_THRESHOLD")
 
     # Initialize the rclpy library.
     rclpy.init()
@@ -259,7 +259,7 @@ def main():
     rclpy.logging.set_logger_level("semantic_pointcloud_node", eval(NODE_LOG_LEVEL))
     
     # Instance the MapBuilerNode class
-    semantic_pointcloud_node = SemanticPointcloudNode()
+    semantic_pointcloud_node = SemanticPointcloudNode(SAMPLING_PERCENTAGE, TIME_DIFF, DISTANCE_THRESHOLD)
     
     # Begin looping the node
     rclpy.spin(semantic_pointcloud_node)
