@@ -4,12 +4,14 @@
         "GOAL_DISTANCE_THRESHOLD": 0.8,        
         "CENTROIDS_FILTERING_DISTANCE": 0.2,   
         "FILENAME" : "/home/mboghl21studentaaudk/tiago_public_ws/centroids.npy",
-        "NODE_LOG_LEVEL": "DEBUG"
+        "NODE_LOG_LEVEL": "DEBUG",
+        "COMPUTE_DIST_TO_GOAL_TIMER_PERIOD": 1,
+        "TASK_TIMER_PERIOD": 60
     },
 
     "LlmNode": {
         "LLM_MODEL": "gpt-4o-mini",
-        "LLM_CONTENT": "You are my semantic processing assistant. When you recieve a string, you should parse it down to the locations included. Like 'Go to the bed behind the cabin' then you should return ['bed', 'cabin'], 'Go get my medicine on the counter behind the sofa' then you should return ['sofa', 'counter', 'medicine']. If a plural is present, return the item the appropriate amount of times. Like 'Go get the remote by the chairs' should return ['chair', 'chair', 'remote']. These are all the labels that you can use: 'person', 'couch', 'chair', 'tv', 'cup', 'sink', 'spoon', 'vase', 'refrigerator', 'dining table', 'sports ball', 'cell phone', 'bench', 'bed'",
+        "LLM_CONTENT": "You are my semantic processing assistant. When you recieve a string, you should parse it down to the locations included. Like 'Go to the bed behind the cabin' then you should return ['bed', 'cabin'], 'Go get my medicine on the counter behind the sofa' then you should return ['sofa', 'counter', 'medicine']. If a plural is present, return the item the appropriate amount of times. Like 'Go get the remote by the chairs' should return ['chair', 'chair', 'remote']. In the last position is the goal(the object of interest that seems to be the target of the user) and then before in order the other destinations. These are all the labels that you can use: 'person', 'couch', 'chair', 'tv', 'cup', 'sink', 'spoon', 'vase', 'refrigerator', 'table', 'sports ball', 'cell phone', 'bench', 'bed'",
         "NODE_LOG_LEVEL": "DEBUG"
     },
 
@@ -21,7 +23,7 @@
     },
 
     "ImageSegmentationNode": {
-        "CONFIDENCE": 0.65,           
+        "CONFIDENCE": 0.51,           
         "FRAME_SKIPPED": 10,                  
         "NODE_LOG_LEVEL": "WARN"
     },

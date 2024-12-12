@@ -92,7 +92,7 @@ class GetCentroidsNode(Node):
             if np.any(distances < self.DISTANCE_THRESHOLD):
                 filtered_points.append((x, y, z, label_id))
 
-        self.logger.debug(f"Filtered down to {len(filtered_points)} points near obstacles.")
+        self.logger.fatal(f"from {len(self.transformed_points)} Filtered down to {len(filtered_points)} points near obstacles.")
 
         if not filtered_points:
             self.logger.warning("No points to cluster after filtering.")

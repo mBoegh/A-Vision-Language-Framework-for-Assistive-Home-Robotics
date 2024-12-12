@@ -88,7 +88,7 @@ class ImageSegmentationNode(Node):
             'spoon': 7,
             'vase': 8,
             'refrigerator': 9,
-            'dining table': 10,
+            'table': 10,
             'sports ball': 11,
             'cell phone': 12,
             'bench': 13,

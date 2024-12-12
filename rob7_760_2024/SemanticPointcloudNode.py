@@ -198,7 +198,7 @@ class SemanticPointcloudNode(Node):
 
         # Publish the PointCloud2 message
         self.point_cloud_pub.publish(cloud_msg)
-        self.logger.fatal(f"Published PointCloud2 with {len(self.transformed_points)} points")
+        #self.logger.fatal(f"Published PointCloud2 with {len(self.transformed_points)} points")
 
     def reduce_points(self, points):
         """
