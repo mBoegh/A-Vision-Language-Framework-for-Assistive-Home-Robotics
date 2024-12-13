@@ -274,26 +274,26 @@ class MainNode(Node):
         points_array.tofile('centroids.bin')
         print(f"Point cloud saved to {self.FILENAME}")
         
-        
+        import numpy as np
+
     def update_centroids(self, distance_threshold=0.1):
-        
         if self.centroids_new:
             # Create a copy of the initialized centroids to avoid modifying the list during iteration
-            updated_centroids = self.centroids.copy()
+            updated_centroids = np.copy(self.centroids)
             self.logger.fatal("Updating centroids")
-            
+
+            # Ensure centroids_new is a numpy array for easier handling
             self.centroids_new = np.array(self.centroids_new)
-            
+
             for new_centroid in self.centroids_new:
-                # Check if this centroid is near any of the initialized centroids
                 found_near = False
 
                 for i, init_centroid in enumerate(updated_centroids):
-                    
                     x_nc, y_nc, z_nc = new_centroid[0:3]
                     x_ic, y_ic, z_ic = init_centroid[0:3]
-                    # Calculate distance only based on (x, y, z) coordinates
+                    # Calculate the Euclidean distance only based on (x, y, z) coordinates
                     distance = self.euclidean_distance([x_nc, y_nc, z_nc], [x_ic, y_ic, z_ic])
+                    
                     if distance <= distance_threshold:
                         # If the new centroid is near the initialized one, substitute it
                         updated_centroids[i] = new_centroid
@@ -301,12 +301,17 @@ class MainNode(Node):
                         break  # No need to check further if we have already found a match
 
                 if not found_near:
-                    # If no near centroid was found, add the new centroid to the list
-                    updated_centroids = np.append(updated_centroids, [new_centroid])
+                    # If no near centroid was found, add the new centroid to the list using np.vstack
+                    updated_centroids = np.vstack([updated_centroids, new_centroid])
 
-            # Update the initialized centroids with the new list
+            # Publish the message for the robot goal
+            self.robot_reached_goal_publisher.publish(self.robot_reached_goal_msg)
+            
+            # Update the centroids and save them to an npy file
             self.centroids = updated_centroids
-            self.logger.info(f"updating centroids fin: {self.centroids}")
+            np.save("updated_centroids.npy", self.centroids)  # Save the centroids to a file
+            self.logger.info(f"Updated centroids: {self.centroids}")
+
 
         
     ##########################
@@ -344,6 +349,7 @@ class MainNode(Node):
         self.orientated_correctly_flag = True
         
         self.goal_position = [0.0, 0.0, 0.0]
+        
         
     def main_timer_callback(self):
         if self.trigger:
@@ -393,9 +399,7 @@ class MainNode(Node):
                 if not self.robot_dist_to_goal == None and self.robot_dist_to_goal < self.GOAL_DISTANCE_THRESHOLD and not self.orientated_correctly_flag:
                     
                     self.logger.fatal("Robot reached goal.")
-                
-                    self.robot_reached_goal_publisher.publish(self.robot_reached_goal_msg)
-                    
+                                    
                     self.logger.debug(f"Published robot_reached_goal_msg: '{self.robot_reached_goal_msg.data}'")
                     
                     self.publish_pose()
