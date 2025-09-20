@@ -1,6 +1,22 @@
 # rob7_760_2024
 Aalborg University Robotics student project by group 760 - 2024
 
+In the Project Report folder you find our paper, as well as here: https://ieeexplore.ieee.org/document/11163226
+
+Please cite our work:
+``` bibtex
+@INPROCEEDINGS{11163226,
+  author={Bøgh-Larsen, Magnus and Gerstnerlund, Adam and Ragogna, Davide and Alagić, Haris and Yücel, Ozan Gazi and Valiollahi, Sepideh and Choi, Suzy and Heshmati-Alamdari, Shahab and Li, Chen and Chrysostomou, Dimitrios},
+  booktitle={2025 European Conference on Mobile Robots (ECMR)}, 
+  title={A Vision-Language Framework for Assistive Home Robotics}, 
+  year={2025},
+  volume={},
+  number={},
+  pages={1-6},
+  keywords={Point cloud compression;Simultaneous localization and mapping;Accuracy;Navigation;Object detection;Real-time systems;Natural language processing;Object recognition;Reliability;Artificial intelligence;Vision-Language Navigation;Robotics;Natural Language Processing;SLAM;Object Detection;Human-Robot Interaction},
+  doi={10.1109/ECMR65884.2025.11163226}}
+```
+
 # Installation
 If you follow the guide *to the teeth* then it *should* be installed in these 6 steps.
 
