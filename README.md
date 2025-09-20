@@ -1,4 +1,4 @@
-# rob7_760_2024
+# A Vision-Language Framework for Assistive Home Robotics
 Aalborg University Robotics student project by group 760 - 2024
 
 In the Project Report folder you find our paper, as well as here: https://ieeexplore.ieee.org/document/11163226
