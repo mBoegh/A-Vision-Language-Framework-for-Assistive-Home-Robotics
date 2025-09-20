@@ -86,7 +86,7 @@ cd ~/tiago_public_ws/src/
 
 ## 3. Clone this repository
 ```bash
-gh repo clone mBoegh/rob7_760_2024
+gh repo clone mBoegh/A-Vision-Language-Framework-for-Assistive-Home-Robotics
 ```
 ## 4. Build and source
 ```bash
