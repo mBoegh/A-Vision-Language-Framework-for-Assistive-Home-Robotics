@@ -10,7 +10,7 @@ Authors
 - Suzy Choi                | Dept. of Materials and Production, Aalborg University, Aalborg, Denmark
 - Shahab Heshmati-Alamdari | Dept. of Electronic Systems, Aalborg University, Aalborg, Denmark
 - Chen Li                  | Dept. of Materials and Production, Aalborg University, Aalborg, Denmark
-- Dimitrios Chrysostomou   |Dept. of Materials and Production, Aalborg University, Aalborg, Denmark
+- Dimitrios Chrysostomou   | Dept. of Materials and Production, Aalborg University, Aalborg, Denmark
 
 In the Project Report folder you find our paper, as well as here: https://ieeexplore.ieee.org/document/11163226
 
