@@ -109,21 +109,4 @@ source ~/tiago_public_ws/install/setup.bash
 ros2 launch tiago_gazebo tiago_gazebo.launch.py is_public_sim:=True world_name:=pal_office [arm_type:=no-arm]
 ```
 
-## In another terminal - Run the custom controller
-```bash
-ros2 run rob7_760_2024 custom_controller
-```
-
-# Customizing the custom_controller.py
-## You can find the controller here:
-```bash
-cd ~/tiago_public_ws/src/rob7_760_2024/rob7_760_2024/
-```
-
-## When you make changes to the controller run this
-```bash
-cd ~/tiago_public_ws
-source /opt/ros/humble/setup.bash
-colcon build --package-select rob7_760_2024
-source ~/tiago_public_ws/install/setup.bash
-```
+## Then run all the nodes, and give the robot a command input. The system needs to be manually initialised by driving around the robot using teleop, to get a init list of centroids.
