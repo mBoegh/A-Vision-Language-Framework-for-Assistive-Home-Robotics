@@ -1,5 +1,16 @@
 # A Vision-Language Framework for Assistive Home Robotics
-Aalborg University Robotics student project by group 760 - 2024
+
+Authors
+- Magnus Bøgh-Larsen       | Dept. of Electronic Systems, Aalborg University, Aalborg, Denmark
+- Adam Gerstnerlund        | Dept. of Electronic Systems, Aalborg University, Aalborg, Denmark
+- Davide Ragogna           | Dept. of Electronic Systems, Aalborg University, Aalborg, Denmark
+- Haris Alagić             | Dept. of Electronic Systems, Aalborg University, Aalborg, Denmark
+- Ozan Gazi Yücel          | Dept. of Electronic Systems, Aalborg University, Aalborg, Denmark
+- Sepideh Valiollahi       | Dept. of Electronic Systems, Aalborg University, Aalborg, Denmark
+- Suzy Choi                | Dept. of Materials and Production, Aalborg University, Aalborg, Denmark
+- Shahab Heshmati-Alamdari | Dept. of Electronic Systems, Aalborg University, Aalborg, Denmark
+- Chen Li                  | Dept. of Materials and Production, Aalborg University, Aalborg, Denmark
+- Dimitrios Chrysostomou   |Dept. of Materials and Production, Aalborg University, Aalborg, Denmark
 
 In the Project Report folder you find our paper, as well as here: https://ieeexplore.ieee.org/document/11163226
 
